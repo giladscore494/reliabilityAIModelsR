@@ -4,4 +4,7 @@ pandas
 json-repair
 google-generativeai
 gspread
+
 google-auth
+Flask-SQLAlchemy
+psycopg2-binary
