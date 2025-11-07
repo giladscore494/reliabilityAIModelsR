@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>החיפושים שלי</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        main {
+            padding-top: 1.5rem;
+        }
+        .search-item {
+            background-color: var(--input-bg);
+            border: 1px solid var(--border-color);
+            border-radius: var(--radius-md);
+            margin-bottom: 1rem;
+            padding: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+        .search-item h3 {
+            margin-bottom: 0.5rem;
+            color: var(--primary-color);
+        }
+        .search-item .timestamp {
+            color: var(--text-light);
+            font-size: 0.9rem;
+            margin-bottom: 1rem;
+        }
+        .search-item .score {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="user-corner">
+            <span>שלום, {{ user.name.split(' ')[0] }}</span>
+            <a href="/" class="user-button">חזרה לחיפוש</a>
+            <a href="/logout" class="user-button logout">התנתק</a>
+        </div>
+        
+        <div class="header-content">
+            <h1>החיפושים האחרונים שלי</h1>
+            <p>כאן תוכל לראות את כל הדוחות שהפקת</p>
+        </div>
+    </header>
+
+    <main>
+        {% if searches %}
+            {% for search in searches %}
+                <div class="search-item">
+                    <h3>{{ search.make | title }} {{ search.model | title }} ({{ search.year }})</h3>
+                    <div class="timestamp">חיפוש מיום: {{ search.timestamp }}</div>
+                    <div class="score">ציון: {{ search.data.base_score_calculated }} / 100</div>
+                    <p>{{ search.data.reliability_summary | truncate(250) }}</p>
+                    </div>
+            {% endfor %}
+        {% else %}
+            <div class="login-prompt">
+                <h3>עדיין לא ביצעת חיפושים</h3>
+                <p>חזור לדף הבית כדי לבצע את החיפוש הראשון שלך.</p>
+                <a href="/" class="user-button login">חזרה לחיפוש</a>
+            </div>
+        {% endif %}
+    </main>
+</body>
+</html>
