@@ -2,17 +2,18 @@
    Global Variables & Reset
    ======================== */
 :root {
-    --primary-color: #0d6efd;
-    --primary-hover: #0b5ed7;
-    --bg-light: #f8f9fa;
+    --primary-color: #6366F1; /* סגול-כחול מודרני */
+    --primary-hover: #4F46E5;
+    --bg-main: #f3f4f6; /* אפור בהיר מאוד */
     --card-bg: #ffffff;
-    --text-dark: #212529;
-    --text-light: #6c757d;
-    --border-color: #dee2e6;
-    --border-radius-lg: 12px;
-    --border-radius-md: 8px;
-    --shadow-sm: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
-    --shadow-md: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    --text-dark: #1f2937;
+    --text-light: #6b7280;
+    --border-color: #e5e7eb;
+    --input-bg: #f9fafb;
+    --radius-lg: 12px;
+    --radius-md: 8px;
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
 }
 
 *, *::before, *::after {
@@ -21,9 +22,12 @@
     padding: 0;
 }
 
+/* ========================
+   Body & Background
+   ======================== */
 body {
-    font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", "Liberation Sans", sans-serif;
-    background-color: var(--bg-light);
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-main);
     color: var(--text-dark);
     line-height: 1.6;
     direction: rtl;
@@ -35,35 +39,33 @@ body {
    Header
    ======================== */
 header {
-    background-color: var(--card-bg);
-    padding: 2rem 1.5rem;
+    background: linear-gradient(135deg, var(--primary-color) 0%, #a855f7 100%);
+    color: white;
+    padding: 3rem 1.5rem 6rem 1.5rem; /* הגדלנו את הפדינג התחתון */
     text-align: center;
-    border-bottom: 1px solid var(--border-color);
-    margin-bottom: 2rem;
-    box-shadow: var(--shadow-sm);
 }
 
 header h1 {
-    font-size: 2.25rem;
-    color: var(--text-dark);
+    font-size: 2.75rem;
+    font-weight: 800;
     margin-bottom: 0.5rem;
 }
 
 header p {
-    font-size: 1.1rem;
-    color: var(--text-light);
+    font-size: 1.15rem;
+    opacity: 0.9;
 }
 
 /* ========================
    Main Content Card
    ======================== */
 main {
-    max-width: 800px;
-    margin: 0 auto;
+    max-width: 900px;
+    margin: -4rem auto 0 auto; /* יוצר אפקט שהכרטיס "יושב" על הרקע */
     padding: 2.5rem;
     background-color: var(--card-bg);
-    border-radius: var(--border-radius-lg);
-    box-shadow: var(--shadow-md);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xl);
     border: 1px solid var(--border-color);
 }
 
@@ -71,28 +73,32 @@ main {
    Form Styles
    ======================== */
 form h3 {
-    font-size: 1.5rem;
-    color: var(--primary-color);
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-dark);
     padding-bottom: 0.75rem;
-    border-bottom: 2px solid var(--border-color);
+    border-bottom: 1px solid var(--border-color);
     margin-bottom: 1.5rem;
+    margin-top: 1rem;
     display: flex;
     align-items: center;
     gap: 0.75rem;
 }
-
-form {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 1.25rem;
+form h3:first-of-type {
+    margin-top: 0;
 }
 
-/* Responsive columns for form fields */
-@media (min-width: 600px) {
-    .form-grid {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 1.25rem;
+/* רשת של 3 עמודות */
+.form-grid-3 {
+    display: grid;
+    grid-template-columns: 1fr; /* ברירת מחדל לנייד */
+    gap: 1.5rem;
+}
+
+/* במחשב, 3 עמודות */
+@media (min-width: 768px) {
+    .form-grid-3 {
+        grid-template-columns: repeat(3, 1fr);
     }
 }
 
@@ -104,18 +110,20 @@ form {
 
 label {
     font-weight: 500;
-    color: var(--text-dark);
+    font-size: 0.875rem; /* 14px */
+    color: var(--text-light);
 }
 
 input[type="text"],
 select {
     width: 100%;
-    padding: 0.875rem 1.25rem;
+    padding: 0.75rem 1rem;
     border: 1px solid var(--border-color);
-    border-radius: var(--border-radius-md);
-    background-color: #fff;
+    border-radius: var(--radius-md);
+    background-color: var(--input-bg); /* רקע שונה לאינפוט */
     font-size: 1rem;
     font-family: inherit;
+    color: var(--text-dark);
     transition: border-color 0.2s, box-shadow 0.2s;
 }
 
@@ -123,12 +131,13 @@ input[type="text"]:focus,
 select:focus {
     outline: none;
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.2);
+    background-color: var(--card-bg);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
 }
 
 select:disabled {
-    background-color: var(--bg-light);
     cursor: not-allowed;
+    opacity: 0.7;
 }
 
 /* ========================
@@ -143,24 +152,28 @@ select:disabled {
     font-size: 1.15rem;
     font-weight: 600;
     color: #fff;
-    background-color: var(--primary-color);
+    background: var(--primary-color);
     border: none;
-    border-radius: var(--border-radius-md);
+    border-radius: var(--radius-md);
     cursor: pointer;
-    transition: background-color 0.2s, transform 0.1s;
-    margin-top: 1rem;
+    transition: all 0.2s ease-out;
+    margin-top: 2rem;
+    box-shadow: var(--shadow-md);
 }
 
 #submit-button:hover {
-    background-color: var(--primary-hover);
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px -3px rgba(0, 0, 0, 0.15);
 }
 
 #submit-button:disabled {
     background-color: var(--text-light);
     cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
 }
 
-/* Spinner Animation */
 .spinner {
     width: 20px;
     height: 20px;
@@ -170,75 +183,129 @@ select:disabled {
     animation: spin 1s ease-in-out infinite;
 }
 
-.hidden {
-    display: none;
-}
-
-@keyframes spin {
-    to { transform: rotate(360deg); }
-}
+.hidden { display: none; }
+@keyframes spin { to { transform: rotate(360deg); } }
 
 /* ========================
    Results Container
    ======================== */
 #results-container {
-    margin-top: 2rem;
+    margin-top: 3rem;
     border-top: 1px solid var(--border-color);
-    padding-top: 2rem;
-}
-
-#results-content h2 { /* "תוצאות הניתוח" */
-    text-align: center;
-    margin-bottom: 1.5rem;
+    padding-top: 2.5rem;
 }
 
 #results-content h3 { /* הציון המשוקלל */
     text-align: center;
-    font-size: 2.5rem;
-    font-weight: 700;
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+}
+#results-content .score-value { /* הציון עצמו */
+    text-align: center;
+    font-size: 4rem;
+    font-weight: 800;
     color: var(--primary-color);
+    line-height: 1;
     margin-bottom: 1.5rem;
 }
 
-#results-content h4 { /* כותרות משנה בתוצאות */
-    font-size: 1.25rem;
-    font-weight: 600;
-    color: var(--text-dark);
+#results-content .summary-text { /* סיכום האמינות */
+    font-size: 1.1rem;
+    line-height: 1.7;
+    text-align: center;
+    background-color: var(--input-bg);
+    padding: 1.5rem;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    margin-bottom: 2rem;
+}
+
+/* עיצוב הטאבים של התוצאות */
+.result-tabs {
+    display: flex;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 0.5rem;
-    margin-top: 2rem;
-    margin-bottom: 1rem;
+    margin-bottom: 1.5rem;
+}
+.tab {
+    padding: 0.75rem 1.25rem;
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-light);
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s;
+}
+.tab:hover {
+    color: var(--text-dark);
+}
+.tab.active {
+    color: var(--primary-color);
+    border-bottom-color: var(--primary-color);
+}
+.tab-content {
+    display: none;
+}
+.tab-content.active {
+    display: block;
 }
 
 #results-content ul {
-    list-style-position: inside;
-    padding-right: 0.5rem;
-    color: var(--text-dark);
+    list-style-type: none;
+    padding: 0;
 }
-
 #results-content ul li {
+    position: relative;
+    padding-right: 30px;
     margin-bottom: 0.75rem;
+    font-size: 1rem;
+}
+#results-content ul li::before {
+    content: "🔧"; /* אפשר להחליף ב- ✓ */
+    position: absolute;
+    right: 0;
+    top: 0;
+    color: var(--primary-color);
 }
 
-#results-content p {
-    margin-bottom: 1rem;
+/* פירוט ציון */
+.score-breakdown-list li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 0;
+    border-bottom: 1px dashed var(--border-color);
 }
+.score-breakdown-list li::before { content: none; }
+.score-breakdown-list li span:first-child { font-weight: 500; }
+.score-breakdown-list li span:last-child { font-weight: 700; color: var(--text-dark); }
+
+/* מתחרים */
+.competitor-item {
+    margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px dashed var(--border-color);
+}
+.competitor-item:last-child { border: none; }
+.competitor-item strong { color: var(--text-dark); }
+
 
 #results-content mark { /* אזהרת ק"מ */
     display: block;
     padding: 1rem;
-    margin: 1rem 0;
-    background-color: #fff3cd;
-    border: 1px solid #ffeeba;
-    border-radius: var(--border-radius-md);
+    margin: 1.5rem 0;
+    background-color: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: var(--radius-md);
     text-align: center;
     font-weight: 500;
+    color: #92400e;
 }
 
 #results-content mark.error { /* הודעת שגיאה */
-    background-color: #f8d7da;
-    border-color: #f5c6cb;
-    color: #721c24;
+    background-color: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
     font-weight: 600;
 }
 
