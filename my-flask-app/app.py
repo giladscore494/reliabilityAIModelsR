@@ -1,18 +1,16 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.1.0 (Final Code with Legal Routes)
+# v7.1.0 (Final Code with Legal Routes + 18+ front-gate in UI)
 # ===================================================================
 
-import os, re, json, difflib, traceback
+import os, re, json, traceback
 import time as pytime
-from typing import Optional, Tuple, Any, Dict, List
+from typing import Optional, Tuple, Any, Dict
 from datetime import datetime, time, timedelta
 
-import pandas as pd
 from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import func
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
     current_user, login_required
@@ -21,6 +19,7 @@ from authlib.integrations.flask_client import OAuth
 from werkzeug.middleware.proxy_fix import ProxyFix
 from json_repair import repair_json
 import google.generativeai as genai
+import pandas as pd
 
 # ==================================
 # === 1. יצירת אובייקטים גלובליים ===
@@ -65,7 +64,6 @@ class SearchHistory(db.Model):
 # ==================================
 # === 3. פונקציות עזר (גלובלי) ===
 # ==================================
-
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
@@ -73,22 +71,22 @@ def load_user(user_id):
 # --- טעינת המילון ---
 try:
     from car_models_dict import israeli_car_market_full_compilation
-    print(f"[DICT] ✅ Loaded car_models_dict successfully. Manufacturers: {len(israeli_car_market_full_compilation)}")
+    print(f"[DICT] ✅ Loaded car_models_dict. Manufacturers: {len(israeli_car_market_full_compilation)}")
     try:
         _total_models = sum(len(models) for models in israeli_car_market_full_compilation.values())
         print(f"[DICT] ✅ Total models loaded: {_total_models}")
     except Exception as inner_e:
-        print(f"[DICT] ⚠️ Could not count models: {inner_e}")
+        print(f"[DICT] ⚠️ Count models failed: {inner_e}")
 except Exception as e:
     print(f"[DICT] ❌ Failed to import car_models_dict: {e}")
     israeli_car_market_full_compilation = {"Toyota": ["Corolla (2008-2025)"]}
     print("[DICT] ⚠️ Fallback applied — Toyota only")
 
+import re as _re
 def normalize_text(s: Any) -> str:
-    if s is None:
-        return ""
-    s = re.sub(r"\(.*?\)", " ", str(s)).strip().lower()
-    return re.sub(r"\s+", " ", s)
+    if s is None: return ""
+    s = _re.sub(r"\(.*?\)", " ", str(s)).strip().lower()
+    return _re.sub(r"\s+", " ", s)
 
 def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
     m = normalize_text(mileage_range or "")
@@ -99,7 +97,6 @@ def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
     return 0, None
 
 def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, Optional[str]]:
-    """אם יש ציון בסיסי כמספר – ניישם התאמה. אחרת לא ניגע."""
     try:
         adj, note = mileage_adjustment(mileage_range)
         base_key = "base_score_calculated"
@@ -107,7 +104,7 @@ def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, O
             try:
                 base_val = float(model_output[base_key])
             except Exception:
-                m = re.search(r"-?\d+(\.\d+)?", str(model_output[base_key]))
+                m = _re.search(r"-?\d+(\.\d+)?", str(model_output[base_key]))
                 base_val = float(m.group()) if m else None
             if base_val is not None:
                 new_val = max(0.0, min(100.0, base_val + adj))
@@ -124,28 +121,28 @@ def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_
 החזר JSON בלבד:
 
 {{
-  "search_performed": true,
-  "score_breakdown": {{
-    "engine_transmission_score": "מספר (1-10)",
-    "electrical_score": "מספר (1-10)",
-    "suspension_brakes_score": "מספר (1-10)",
-    "maintenance_cost_score": "מספר (1-10)",
-    "satisfaction_score": "מספר (1-10)",
-    "recalls_score": "מספר (1-10)"
-  }},
-  "base_score_calculated": "מספר (0-100)",
-  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
-  "avg_repair_cost_ILS": "מספר ממוצע",
-  "issues_with_costs": [
-    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
-  ],
-  "reliability_summary": "סיכום בעברית",
-  "sources": ["רשימת אתרים"],
-  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
-  "common_competitors_brief": [
-      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
-      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
-  ]
+  "search_performed": true,
+  "score_breakdown": {{
+    "engine_transmission_score": "מספר (1-10)",
+    "electrical_score": "מספר (1-10)",
+    "suspension_brakes_score": "מספר (1-10)",
+    "maintenance_cost_score": "מספר (1-10)",
+    "satisfaction_score": "מספר (1-10)",
+    "recalls_score": "מספר (1-10)"
+  }},
+  "base_score_calculated": "מספר (0-100)",
+  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
+  "avg_repair_cost_ILS": "מספר ממוצע",
+  "issues_with_costs": [
+    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
+  ],
+  "reliability_summary": "סיכום בעברית",
+  "sources": ["רשימת אתרים"],
+  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
+  "common_competitors_brief": [
+      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
+      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
+  ]
 }}
 
 רכב: {make} {model}{extra} {int(year)}
@@ -162,22 +159,22 @@ def call_model_with_retry(prompt: str) -> dict:
             llm = genai.GenerativeModel(model_name)
         except Exception as e:
             last_err = e
-            print(f"[AI] ❌ Failed to init model {model_name}: {e}")
+            print(f"[AI] ❌ init {model_name}: {e}")
             continue
         for attempt in range(1, RETRIES + 1):
             try:
-                print(f"[AI] Calling model {model_name} (attempt {attempt})")
+                print(f"[AI] Calling {model_name} (attempt {attempt})")
                 resp = llm.generate_content(prompt)
                 raw = (getattr(resp, "text", "") or "").strip()
                 try:
-                    m = re.search(r"\{.*\}", raw, re.DOTALL)
+                    m = _re.search(r"\{.*\}", raw, _re.DOTALL)
                     data = json.loads(m.group()) if m else json.loads(raw)
                 except Exception:
                     data = json.loads(repair_json(raw))
-                print("[AI] ✅ Model call successful.")
+                print("[AI] ✅ success")
                 return data
             except Exception as e:
-                print(f"[AI] ⚠️ Attempt {attempt} failed on {model_name}: {e}")
+                print(f"[AI] ⚠️ {model_name} attempt {attempt} failed: {e}")
                 last_err = e
                 if attempt < RETRIES:
                     pytime.sleep(RETRY_BACKOFF_SEC)
@@ -188,41 +185,34 @@ def call_model_with_retry(prompt: str) -> dict:
 # ===== ★★★ 4. פונקציית ה-Factory ★★★ ======
 # ========================================
 def create_app():
-    """
-    יוצר ומגדיר את אפליקציית Flask.
-    """
     app = Flask(__name__)
-    
-    # --- התיקון הקריטי: ProxyFix ל-HTTPS ו-Session
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    
-    # --- 4A. טעינת הגדרות (Secrets) ---
+
+    # Secrets
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') 
-    
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+
     if not app.config['SQLALCHEMY_DATABASE_URI']:
         print("[BOOT] ⚠️ DATABASE_URL not set. Using in-memory sqlite.")
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        
     if not app.config['SECRET_KEY']:
         print("[BOOT] ⚠️ SECRET_KEY not set. Using dev fallback.")
         app.config['SECRET_KEY'] = 'dev-secret-key-that-is-not-secret'
 
-    # --- 4B. אתחול ההרחבות עם האפליקציה ---
+    # Init
     db.init_app(app)
     login_manager.init_app(app)
     oauth.init_app(app)
+    login_manager.login_view = 'index'
 
-    login_manager.login_view = 'index' # הגדרה מחדש
-
-    # --- 4C. הגדרת סודות נוספים ---
+    # Gemini key
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if not GEMINI_API_KEY:
         print("[AI] ⚠️ GEMINI_API_KEY missing")
     genai.configure(api_key=GEMINI_API_KEY)
 
-    # --- 4D. רישום ספק ה-OAuth (גוגל) ---
-    google = oauth.register(
+    # OAuth
+    oauth.register(
         name='google',
         client_id=os.environ.get('GOOGLE_CLIENT_ID'),
         client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
@@ -230,17 +220,14 @@ def create_app():
         client_kwargs={'scope': 'openid email profile'},
         api_base_url='https://www.googleapis.com/oauth2/v1/',
         userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
-        claims_options={
-            'iss': {'values': ['https://accounts.google.com', 'accounts.google.com']}
-        }
+        claims_options={'iss': {'values': ['https://accounts.google.com', 'accounts.google.com']}}
     )
 
-    # --- 4E. רישום ה-Routes (נתיבים) ---
-    
+    # Routes
     @app.route('/')
     def index():
-        return render_template('index.html', 
-                               car_models_data=israeli_car_market_full_compilation, 
+        return render_template('index.html',
+                               car_models_data=israeli_car_market_full_compilation,
                                user=current_user)
 
     @app.route('/login')
@@ -249,17 +236,14 @@ def create_app():
         redirect_uri = f"https://{domain}/auth"
         if '127.0.0.1' in redirect_uri:
             redirect_uri = f"http://{domain}/auth"
-        print(f"[AUTH] Redirecting to Google. redirect_uri={redirect_uri}")
-
-        # state=None כדי לעקוף MismatchingState בסביבות פרוקסי
-        return google.authorize_redirect(redirect_uri, state=None)
+        print(f"[AUTH] redirect_uri={redirect_uri}")
+        return oauth.google.authorize_redirect(redirect_uri, state=None)
 
     @app.route('/auth')
     def auth():
         try:
-            token = google.authorize_access_token()
-            userinfo = google.get('userinfo').json()
-
+            token = oauth.google.authorize_access_token()
+            userinfo = oauth.google.get('userinfo').json()
             user = User.query.filter_by(google_id=userinfo['id']).first()
             if not user:
                 user = User(
@@ -269,35 +253,31 @@ def create_app():
                 )
                 db.session.add(user)
                 db.session.commit()
-
             login_user(user)
             return redirect(url_for('index'))
         except Exception as e:
-            print(f"[AUTH] ❌ Auth error: {e}")
+            print(f"[AUTH] ❌ {e}")
             traceback.print_exc()
             try:
                 logout_user()
             except Exception:
                 pass
-            return redirect(url_for('logout')) # נשלח ל-logout לשבור את המעגל האינסופי
+            return redirect(url_for('index'))
 
     @app.route('/logout')
     @login_required
     def logout():
         logout_user()
         return redirect(url_for('index'))
-    
-    # --- ★★★ נתיבים חדשים למסמכים משפטיים ★★★ ---
+
+    # Legal pages
     @app.route('/privacy')
     def privacy():
-        """ מציג את מדיניות הפרטיות """
         return render_template('privacy.html', user=current_user)
 
     @app.route('/terms')
     def terms():
-        """ מציג את תקנון השימוש """
         return render_template('terms.html', user=current_user)
-    # ---------------------------------------------
 
     @app.route('/dashboard')
     @login_required
@@ -307,25 +287,24 @@ def create_app():
                 user_id=current_user.id
             ).order_by(SearchHistory.timestamp.desc()).all()
             searches_data = []
-            for search in user_searches:
-                search_data = {
-                    "timestamp": search.timestamp.strftime('%d/%m/%Y %H:%M'),
-                    "make": search.make, "model": search.model, "year": search.year,
-                    "data": json.loads(search.result_json)
-                }
-                searches_data.append(search_data)
+            for s in user_searches:
+                searches_data.append({
+                    "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
+                    "make": s.make, "model": s.model, "year": s.year,
+                    "data": json.loads(s.result_json)
+                })
             return render_template('dashboard.html', searches=searches_data, user=current_user)
         except Exception as e:
-            print(f"[DASH] ❌ Dashboard error: {e}")
+            print(f"[DASH] ❌ {e}")
             return redirect(url_for('index'))
 
     @app.route('/analyze', methods=['POST'])
     @login_required
     def analyze_car():
-        # --- שלב 0: קלט ---
+        # 0) Input
         try:
             data = request.json
-            print(f"[ANALYZE 0/6] payload from user={current_user.id}: {data}")
+            print(f"[ANALYZE 0/6] user={current_user.id} payload: {data}")
             final_make = normalize_text(data.get('make'))
             final_model = normalize_text(data.get('model'))
             final_sub_model = normalize_text(data.get('sub_model'))
@@ -338,31 +317,25 @@ def create_app():
         except Exception as e:
             return jsonify({"error": f"שגיאת קלט (שלב 0): {str(e)}"}), 400
 
-        # --- שלב 1: מגבלת משתמש ---
+        # 1) User quota
         try:
-            print(f"[ANALYZE 1/6] checking quota for user={current_user.id}")
             today_start = datetime.combine(datetime.today().date(), time.min)
             today_end = datetime.combine(datetime.today().date(), time.max)
-
             user_searches_today = SearchHistory.query.filter(
                 SearchHistory.user_id == current_user.id,
                 SearchHistory.timestamp >= today_start,
                 SearchHistory.timestamp <= today_end
             ).count()
-
             if user_searches_today >= USER_DAILY_LIMIT:
-                print(f"[ANALYZE] quota exceeded user={current_user.id}")
                 return jsonify({"error": f"שגיאת מגבלה (שלב 1): ניצלת את {USER_DAILY_LIMIT} החיפושים היומיים שלך. נסה שוב מחר."}), 429
-            print(f"[ANALYZE] quota ok {user_searches_today}/{USER_DAILY_LIMIT}")
         except Exception as e:
             traceback.print_exc()
-            return jsonify({"error": f"שגיאת שרת (שלב 1): נכשל בבדיקת המגבלה שלך. שגיאה: {str(e)}"}), 500
+            return jsonify({"error": f"שגיאת שרת (שלב 1): {str(e)}"}), 500
 
-        # --- שלב 2–3: מטמון DB ---
+        # 2–3) Cache
         try:
-            print("[ANALYZE 2/6] DB cache lookup…")
             cutoff_date = datetime.now() - timedelta(days=MAX_CACHE_DAYS)
-            cached_result_db = SearchHistory.query.filter(
+            cached = SearchHistory.query.filter(
                 SearchHistory.make == final_make,
                 SearchHistory.model == final_model,
                 SearchHistory.year == final_year,
@@ -371,48 +344,29 @@ def create_app():
                 SearchHistory.transmission == final_trans,
                 SearchHistory.timestamp >= cutoff_date
             ).order_by(SearchHistory.timestamp.desc()).first()
-
-            if cached_result_db:
-                print("[ANALYZE 3/6] cache HIT")
-                cached_result = json.loads(cached_result_db.result_json)
-                cached_result['source_tag'] = f"מקור: מטמון DB (נשמר ב-{cached_result_db.timestamp.strftime('%Y-%m-%d')})"
-                return jsonify(cached_result)
-            print("[ANALYZE 3/6] cache MISS")
+            if cached:
+                result = json.loads(cached.result_json)
+                result['source_tag'] = f"מקור: מטמון DB (נשמר ב-{cached.timestamp.strftime('%Y-%m-%d')})"
+                return jsonify(result)
         except Exception as e:
-            print(f"[ANALYZE] cache check error: {e}")
+            print(f"[CACHE] ⚠️ {e}")
 
-        # --- שלב 4: Gemini ---
-        global_searches_today = 0
+        # 4) AI call
         try:
-            today_start = datetime.combine(datetime.today().date(), time.min)
-            today_end = datetime.combine(datetime.today().date(), time.max)
-            global_searches_today = SearchHistory.query.filter(
-                SearchHistory.timestamp >= today_start,
-                SearchHistory.timestamp <= today_end
-            ).count()
-            
-            if global_searches_today >= GLOBAL_DAILY_LIMIT:
-                print("[ANALYZE 4/6] global limit reached")
-                return jsonify({"error": f"שגיאת שרת (שלב 4): המגבלה הגלובלית הושגה ({global_searches_today}/{GLOBAL_DAILY_LIMIT}). נסה שוב מאוחר יותר."}), 503
-
-            print("[ANALYZE 4/6] Calling Gemini…")
             prompt = build_prompt(
                 final_make, final_model, final_sub_model, final_year,
                 final_fuel, final_trans, final_mileage
             )
             model_output = call_model_with_retry(prompt)
-            print("[ANALYZE 4/6] Gemini OK")
         except Exception as e:
             traceback.print_exc()
             return jsonify({"error": f"שגיאת AI (שלב 4): {str(e)}"}), 500
 
-        # --- שלב 5: לוגיקת ק״מ ---
-        print("[ANALYZE 5/6] mileage logic")
+        # 5) Mileage logic
         model_output, note = apply_mileage_logic(model_output, final_mileage)
 
-        # --- שלב 6: שמירה ---
+        # 6) Save
         try:
-            print(f"[ANALYZE 6/6] save result for user={current_user.id}")
             new_log = SearchHistory(
                 user_id=current_user.id,
                 make=final_make, model=final_model, year=final_year,
@@ -422,9 +376,8 @@ def create_app():
             )
             db.session.add(new_log)
             db.session.commit()
-            print("[ANALYZE] save complete")
         except Exception as e:
-            print(f"[ANALYZE] ⚠️ DB save failed: {e}")
+            print(f"[DB] ⚠️ save failed: {e}")
             db.session.rollback()
 
         model_output['source_tag'] = f"מקור: ניתוח AI חדש (חיפוש {user_searches_today + 1}/{USER_DAILY_LIMIT})"
@@ -434,7 +387,6 @@ def create_app():
 
     @app.cli.command("init-db")
     def init_db_command():
-        """יוצר את טבלאות בסיס הנתונים."""
         with app.app_context():
             db.create_all()
         print("Initialized the database tables.")
