@@ -36,7 +36,7 @@
 <body>
     <header>
         <div class="user-corner">
-            <span>שלום, {{ user.name.split(' ')[0] }}</span>
+            <span>שלום, {{ user.name.split(' ')[0] if user.name else 'משתמש' }}</span>
             <a href="/" class="user-button">חזרה לחיפוש</a>
             <a href="/logout" class="user-button logout">התנתק</a>
         </div>
@@ -54,7 +54,7 @@
                     <h3>{{ search.make | title }} {{ search.model | title }} ({{ search.year }})</h3>
                     <div class="timestamp">חיפוש מיום: {{ search.timestamp }}</div>
                     <div class="score">ציון: {{ search.data.base_score_calculated }} / 100</div>
-                    <p>{{ search.data.reliability_summary | truncate(250) }}</p>
+                    <p>{{ search.data.reliability_summary }}</p>
                     </div>
             {% endfor %}
         {% else %}
@@ -65,5 +65,15 @@
             </div>
         {% endif %}
     </main>
-</body>
+    
+    <footer style="text-align: center; padding: 20px; margin-top: 50px; border-top: 1px solid #eee; font-size: 0.9em;">
+        <p>
+            &copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.
+        </p>
+        <p style="margin-top: 10px;">
+            <a href="{{ url_for('privacy') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">מדיניות פרטיות</a> | 
+            <a href="{{ url_for('terms') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">תקנון שימוש</a>
+        </p>
+    </footer>
+    </body>
 </html>
