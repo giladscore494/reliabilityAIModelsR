@@ -1,13 +1,9 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // בדוק אם המשתמש מחובר (מהמשתנה שהעברנו מה-HTML)
     if (typeof userIsAuthenticated === 'undefined' || !userIsAuthenticated) {
         console.log("משתמש לא מחובר, הטופס מושבת.");
-        return; // אל תמשיך אם המשתמש לא מחובר
+        return;
     }
 
-    // --- אם הגענו לכאן, המשתמש מחובר ---
-
-    // איתור אלמנטים גלובליים
     const makeSelect = document.getElementById("make");
     const modelSelect = document.getElementById("model");
     const yearSelect = document.getElementById("year");
@@ -15,8 +11,6 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultsContainer = document.getElementById("results-container");
     const resultsContent = document.getElementById("results-content");
     const submitButton = document.getElementById("submit-button");
-
-    // ----- 1. לוגיקת הטופס (בחירת יצרן/דגם/שנה) -----
 
     makeSelect.addEventListener("change", () => {
         const selectedMake = makeSelect.value;
@@ -62,11 +56,20 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ----- 2. לוגיקת שליחת הטופס (Submit) -----
-
     carForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        
+
+        // ✅ בדיקת אישור חוקי
+        const legalConfirm = document.getElementById('legal-confirm');
+        const legalError = document.getElementById('legal-error');
+
+        if (legalConfirm && !legalConfirm.checked) {
+            legalError.style.display = 'block';
+            return;
+        } else {
+            legalError.style.display = 'none';
+        }
+
         submitButton.disabled = true;
         submitButton.querySelector('.button-text').classList.add('hidden');
         submitButton.querySelector('.spinner').classList.remove('hidden');
@@ -110,12 +113,9 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // ----- 3. פונקציית בניית התוצאות (Render) -----
-
     function renderResults(data) {
         let html = '';
 
-        // --- בלוק עליון: ציון וסיכום ---
         html += `<h3>ציון אמינות משוקלל</h3>`;
         html += `<div class="score-value">${data.base_score_calculated || 0} / 100</div>`;
 
@@ -129,7 +129,6 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<p class="summary-text">${data.reliability_summary}</p>`;
         }
 
-        // --- בניית הטאבים ---
         html += `
             <div class="result-tabs">
                 <div class="tab active" data-tab="tab-details">📊 פירוט הציון</div>
@@ -139,9 +138,6 @@ document.addEventListener("DOMContentLoaded", () => {
             </div>
         `;
 
-        // --- תוכן הטאבים ---
-
-        // טאב 1: פירוט הציון
         const breakdown = data.score_breakdown || {};
         html += `<div id="tab-details" class="tab-content active"><ul class="score-breakdown-list">`;
         html += `<li><span>מנוע וגיר</span> <span>${breakdown.engine_transmission_score || 'N/A'}/10</span></li>`;
@@ -152,7 +148,6 @@ document.addEventListener("DOMContentLoaded", () => {
         html += `<li><span>ריקולים</span> <span>${breakdown.recalls_score || 'N/A'}/10</span></li>`;
         html += `</ul></div>`;
 
-        // טאב 2: תקלות ועלויות
         html += `<div id="tab-issues" class="tab-content">`;
         if (data.common_issues && data.common_issues.length > 0) {
             html += `<strong>תקלות נפוצות:</strong><ul>`;
@@ -166,12 +161,8 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             html += `</ul>`;
         }
-        if (!data.common_issues && !data.issues_with_costs) {
-            html += `<p>אין מידע ספציפי על תקלות או עלויות.</p>`;
-        }
         html += `</div>`;
 
-        // טאב 3: בדיקות מומלצות
         html += `<div id="tab-checks" class="tab-content">`;
         if (data.recommended_checks && data.recommended_checks.length > 0) {
             html += `<ul>`;
@@ -182,7 +173,6 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         html += `</div>`;
 
-        // טאב 4: מתחרים
         html += `<div id="tab-competitors" class="tab-content">`;
         if (data.common_competitors_brief && data.common_competitors_brief.length > 0) {
             data.common_competitors_brief.forEach(comp => {
@@ -193,17 +183,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
         html += `</div>`;
 
-        // מקור
         html += `<small>${data.source_tag || ''}</small>`;
 
-        // הזרקת כל ה-HTML שנוצר לתוך הדף
         resultsContent.innerHTML = html;
-
-        // הפעלת הלוגיקה של הטאבים
         activateTabs();
     }
-    
-    // פונקציה שמפעילה את הטאבים
+
     function activateTabs() {
         const tabs = resultsContent.querySelectorAll('.tab');
         const tabContents = resultsContent.querySelectorAll('.tab-content');
