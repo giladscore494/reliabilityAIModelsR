@@ -6,3 +6,4 @@ google-generativeai
 Flask-SQLAlchemy
 psycopg2-binary
 Flask-Login
+Authlib
