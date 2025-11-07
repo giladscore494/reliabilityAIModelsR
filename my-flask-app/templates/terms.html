@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>תקנון שימוש - yedaarechev.com</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 20px; }
+        .back-link { display: block; margin-bottom: 20px; font-size: 1.1em; }
+        .disclaimer { font-weight: bold; color: #cc0000; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('index') }}" class="back-link">→ חזרה לדף הבית</a>
+        <h1>תקנון השימוש ומגבלות השירות של yedaarechev.com</h1>
+
+        <h2>1. קבלת התנאים</h2>
+        <p>על ידי יצירת חשבון ו/או שימוש בשירות yedaarechev.com, אתה מסכים לתנאים ולהתניות המפורטים להלן. אם אינך מסכים לתנאים אלה, אינך רשאי להשתמש בשירות.</p>
+
+        <h2>2. הגבלת אחריות ושימוש במידע (Disclaimer)</h2>
+        <ul>
+            <li>**אחריות המשתמש:** השירות שלנו מספק ניתוחי אמינות המבוססים על נתונים גלובליים ומודלי בינה מלאכותית (Google Gemini). **מידע זה ניתן לצורכי ייעוץ כללי בלבד.**</li>
+            <li>**אי-אחריות לנכסים:** yedaarechev.com, בעליו, ומפעיליו אינם נושאים באחריות לכל נזק, הפסד כספי, או אובדן הנובע מהסתמכות על דוחות האמינות שלנו.</li>
+            <li>**חובת בדיקה:** השימוש בשירות אינו מהווה תחליף לבדיקה מקיפה ומקצועית של הרכב על ידי מכון בדיקה מורשה או מכונאי מוסמך.</li>
+        </ul>
+
+        <h2>3. מגבלות שימוש והגבלת נגישות (Quotas)</h2>
+        <p>השירות פועל במודל Freemium. אנו שומרים את הזכות לאכוף את מגבלות השימוש הבאות:</p>
+        <ul>
+            <li>**מגבלה יומית למשתמש:** כל משתמש רשום מוגבל ל-<strong>5 (חמישה) חיפושים יומיים</strong> בתוך 24 שעות.</li>
+            <li>**עקיפת מגבלות:** כל ניסיון לעקוף את מגבלות השימוש באמצעות יצירת חשבונות מרובים, שימוש ב-VPN, או אמצעים טכניים אחרים עלול לגרום לחסימה מיידית וקבועה של חשבונך.</li>
+        </ul>
+
+        <h2>4. חשבונות והתחברות</h2>
+        <p>השימוש בשירות מחייב התחברות באמצעות שירות Google OAuth. אתה אחראי לשמירת סודיות פרטיך ואחראי לכל הפעולות המתבצעות דרך חשבונך.</p>
+    </div>
+</body>
+</html>
