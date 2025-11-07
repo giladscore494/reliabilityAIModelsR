@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===========================================================
-# 🚗 Car Reliability Analyzer – Israel (v4.1.0 • Flask API + Debug)
+# 🚗 Car Reliability Analyzer – Israel (v4.2.0 • Flask API + DB Ready)
 # ===========================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -13,6 +13,13 @@ import google.generativeai as genai
 import gspread
 from google.oauth2.service_account import Credentials
 
+# --- 1A. יבוא ספריות חדשות לבסיס הנתונים ---
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import UserMixin
+from datetime import datetime
+# ---------------------------------------------
+
+
 # =========================
 # ========= CONFIG ========
 # =========================
@@ -24,6 +31,43 @@ GLOBAL_DAILY_LIMIT = 1000
 MAX_CACHE_DAYS = 45
 
 app = Flask(__name__)
+
+# ==================================
+# === 1B. הגדרת בסיס הנתונים (DB) ===
+# ==================================
+
+# Railway מספק אוטומטית את ה-DATABASE_URL כמשתנה סביבה
+app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+
+# אנחנו קוראים את המפתח הסודי שהוספנו ב-Railway
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') 
+
+db = SQLAlchemy(app)
+
+# --- הגדרת מודלים (Blueprints לטבלאות) ---
+
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    google_id = db.Column(db.String(200), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(100))
+    # זה יוצר קישור לטבלת החיפושים
+    searches = db.relationship('SearchHistory', backref='user', lazy=True)
+
+class SearchHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    make = db.Column(db.String(100))
+    model = db.Column(db.String(100))
+    year = db.Column(db.Integer)
+    # כאן נשמור את כל התוצאה מ-Gemini כטקסט JSON
+    result_json = db.Column(db.Text, nullable=False)
+
+# --- יצירת הטבלאות בבסיס הנתונים ---
+# הפקודה הזו תיצור את הטבלאות אם הן עדיין לא קיימות
+with app.app_context():
+    db.create_all()
 
 # =========================
 # ======== Secrets ========
@@ -78,6 +122,7 @@ def safe_json_parse(value: Any, default=None):
 # =========================
 # ===== Sheets Layer ======
 # =========================
+# (כל הלוגיקה של Sheets נשארת כאן *בינתיים*. נמחק אותה בשלב הבא)
 REQUIRED_HEADERS = [
     "date","user_id","make","model","sub_model","year","fuel","transmission",
     "mileage_range","base_score_calculated","score_breakdown","avg_cost",
@@ -341,6 +386,7 @@ def index():
 def analyze_car():
     """
     זהו ה-API Endpoint המשודרג עם דיבאג מתקדם.
+    כרגע הוא עדיין משתמש ב-Sheets, אבל התשתית של ה-DB מוכנה.
     """
     try:
         # --- שלב 0: קבלת נתונים ---
