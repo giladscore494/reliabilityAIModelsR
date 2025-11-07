@@ -8,6 +8,16 @@
 </head>
 <body>
     <header>
+        <div class="user-corner">
+            {% if user.is_authenticated %}
+                <span>שלום, {{ user.name.split(' ')[0] }}</span>
+                <a href="/dashboard" class="user-button">החיפושים שלי</a>
+                <a href="/logout" class="user-button logout">התנתק</a>
+            {% else %}
+                <a href="/login" class="user-button login">התחבר עם גוגל</a>
+            {% endif %}
+        </div>
+        
         <div class="header-content">
             <h1>🚗 Car Reliability Analyzer</h1>
             <p>בדיקת אמינות רכב בישראל (מופעל ע"י Gemini ו-Flask)</p>
@@ -15,7 +25,17 @@
     </header>
 
     <main>
+        {% if not user.is_authenticated %}
+        <div class="login-prompt">
+            <h3>ברוך הבא!</h3>
+            <p>כדי לבצע חיפושים, עליך להתחבר עם חשבון גוגל.</p>
+            <a href="/login" class="user-button login" style="font-size: 1.1rem; padding: 0.8rem 1.5rem;">התחבר עם גוגל</a>
+        </div>
+        
+        <form id="car-form" class="hidden"> 
+        {% else %}
         <form id="car-form">
+        {% endif %}
             
             <h3>🔍 בחירת רכב</h3>
             <div class="form-grid-3">
@@ -92,6 +112,8 @@
     </main>
 
     <script>
+        // בודק אם המשתמש מחובר. אם לא, הסקריפט לא ינסה להפעיל את הטופס.
+        const userIsAuthenticated = {{ user.is_authenticated | tojson }};
         const carModelsData = {{ car_models_data | tojson }};
     </script>
     <script src="/static/script.js"></script>
