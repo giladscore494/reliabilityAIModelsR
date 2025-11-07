@@ -1,4 +1,12 @@
 document.addEventListener("DOMContentLoaded", () => {
+    // בדוק אם המשתמש מחובר (מהמשתנה שהעברנו מה-HTML)
+    if (typeof userIsAuthenticated === 'undefined' || !userIsAuthenticated) {
+        console.log("משתמש לא מחובר, הטופס מושבת.");
+        return; // אל תמשיך אם המשתמש לא מחובר
+    }
+
+    // --- אם הגענו לכאן, המשתמש מחובר ---
+
     // איתור אלמנטים גלובליים
     const makeSelect = document.getElementById("make");
     const modelSelect = document.getElementById("model");
@@ -59,7 +67,6 @@ document.addEventListener("DOMContentLoaded", () => {
     carForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         
-        // הפעלת הספינר
         submitButton.disabled = true;
         submitButton.querySelector('.button-text').classList.add('hidden');
         submitButton.querySelector('.spinner').classList.remove('hidden');
@@ -89,7 +96,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(resultData.error || `HTTP error! status: ${response.status}`);
             }
             
-            // הצלחה! בניית ה-HTML של התוצאות
             renderResults(resultData);
             resultsContainer.classList.remove("hidden");
 
@@ -98,7 +104,6 @@ document.addEventListener("DOMContentLoaded", () => {
             resultsContent.innerHTML = `<mark class="error">❌ נכשלתי ביצירת הניתוח: ${error.message}</mark>`;
             resultsContainer.classList.remove("hidden");
         } finally {
-            // החזרת הכפתור למצב רגיל
             submitButton.disabled = false;
             submitButton.querySelector('.button-text').classList.remove('hidden');
             submitButton.querySelector('.spinner').classList.add('hidden');
@@ -205,11 +210,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
         tabs.forEach(tab => {
             tab.addEventListener('click', () => {
-                // הסרת 'active' מכולם
                 tabs.forEach(t => t.classList.remove('active'));
                 tabContents.forEach(c => c.classList.remove('active'));
-
-                // הוספת 'active' לטאב הלחוץ ולתוכן שלו
                 tab.classList.add('active');
                 resultsContent.querySelector(`#${tab.dataset.tab}`).classList.add('active');
             });
