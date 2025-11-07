@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
-# 🚗 Car Reliability Analyzer – Israel (v6.3.0 • Factory Pattern FIX)
+# 🚗 Car Reliability Analyzer – Israel (v6.4.0 • ProxyFix)
 # ===================================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -22,6 +22,8 @@ from flask_login import (
     login_required,
 )
 from authlib.integrations.flask_client import OAuth
+# --- ★★★ הוספנו את ה-Import החדש ★★★ ---
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 # ==================================
 # === 1. יצירת אובייקטים גלובליים (ריקים) ===
@@ -161,6 +163,9 @@ def create_app():
     יוצר ומגדיר את אפליקציית Flask.
     """
     app = Flask(__name__)
+    
+    # --- ★★★ התיקון: להגיד ל-Flask שהוא מאחורי פרוקסי ★★★ ---
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     
     # --- 4A. טעינת הגדרות (Secrets) ---
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
@@ -336,7 +341,6 @@ def create_app():
         try:
             today_start = datetime.combine(datetime.today().date(), time.min)
             today_end = datetime.combine(datetime.today().date(), time.max)
-            # ★★★ תיקון קריטי: צריך לספור מ-SearchHistory, לא SearchLog
             global_searches_today = SearchHistory.query.filter(
                 SearchHistory.timestamp >= today_start,
                 SearchHistory.timestamp <= today_end
@@ -380,7 +384,6 @@ def create_app():
             db.session.rollback()
 
         # --- סיום: החזרת תשובה ---
-        # ★★★ תיקון קריטי: צריך להשתמש ב-user_searches_today
         model_output['source_tag'] = f"מקור: ניתוח AI חדש (חיפוש {user_searches_today + 1}/{USER_DAILY_LIMIT})"
         model_output['mileage_note'] = note
         model_output['km_warn'] = False
@@ -390,8 +393,7 @@ def create_app():
     @app.cli.command("init-db")
     def init_db_command():
         """יוצר את טבלאות בסיס הנתונים."""
-        # קוד זה רץ בתוך ההקשר של האפליקציה, כך שיש לו גישה ל-DB
-        with app.app_context(): # יוצר הקשר אפליקציה ידני
+        with app.app_context():
             db.create_all()
         print("Initialized the database tables.")
 
@@ -401,16 +403,10 @@ def create_app():
 # ===================================================================
 # ===== ★★★ 5. נקודת כניסה (ל-Gunicorn ו-Flask CLI) ★★★ ======
 # ===================================================================
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
-# ---
-# ---    כאן היה התיקון הקריטי: מחקנו את השורה 'app = create_app()'
-# ---    כדי למנוע קריסה בזמן הבנייה.
-# ---
-# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+# --- (מחקנו את 'app = create_app()' מכאן) ---
 
 if __name__ == '__main__':
     # הרצה מקומית בלבד
-    # ניצור אפליקציה רק אם מריצים את הקובץ ישירות
     app = create_app()
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, port=port)
