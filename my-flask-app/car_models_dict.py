@@ -684,7 +684,5 @@ israeli_car_market_full_compilation = {
         "Punto Evo (2009-2014)",
         "500e (2023-2025)",
         "600e (2024-2025)"
-    ],
-    
     ]
 }
