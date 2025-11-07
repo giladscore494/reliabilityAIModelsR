@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>מדיניות פרטיות - yedaarechev.com</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; padding: 20px; }
+        .container { max-width: 800px; margin: auto; }
+        h1, h2 { border-bottom: 2px solid #ccc; padding-bottom: 5px; margin-top: 20px; }
+        .back-link { display: block; margin-bottom: 20px; font-size: 1.1em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="{{ url_for('index') }}" class="back-link">→ חזרה לדף הבית</a>
+        <h1>מדיניות פרטיות של yedaarechev.com</h1>
+
+        <p><strong>תאריך כניסה לתוקף:</strong> 8 בנובמבר 2025</p>
+
+        <p>אנו ב-yedaarechev.com (להלן: "השירות" או "אנחנו") מכבדים את פרטיות המשתמשים שלנו. מדיניות פרטיות זו מתארת את סוג המידע שאנו אוספים, את מטרת האיסוף ואת אופן השימוש בו.</p>
+
+        <h2>1. המידע שאנו אוספים ואופן האיסוף</h2>
+        <p>אנו אוספים שני סוגי מידע:</p>
+        <ul>
+            <li><strong>מידע אישי מזהה (Google OAuth):</strong> שם מלא, כתובת אימייל, מזהה משתמש ייחודי (Google ID).</li>
+            <li><strong>נתוני שימוש ושירות:</strong> היסטוריית חיפושים (יצרן, דגם, שנה, קילומטראז', סוג דלק, תיבת הילוכים), תאריך ושעת הפקת הדו"ח, ותוצאת ניתוח האמינות המלאה (הדו"ח).</li>
+        </ul>
+
+        <h2>2. מטרת איסוף המידע</h2>
+        <p>אנו משתמשים במידע שנאסף למטרות הבאות:</p>
+        <ul>
+            <li><strong>ניהול חשבון:</strong> יצירה וניהול חשבונך, וזיהויך המדויק בעת ההתחברות.</li>
+            <li><strong>הגבלת שימוש (Quotas):</strong> אכיפת מגבלת השימוש היומית (5 חיפושים ביום).</li>
+            <li><strong>הצגת היסטוריה:</strong> הצגת דוחות קודמים שהופקו על ידך (ב-Dashboard).</li>
+            <li><strong>שיפור השירות:</strong> שימוש בנתונים האנונימיים של החיפושים לשיפור מודלי ה-AI שלנו ולהרחבת מאגר הדגמים.</li>
+        </ul>
+
+        <h2>3. אחסון ושמירת מידע</h2>
+        <p>המידע האישי ונתוני השימוש נשמרים בשרת מאובטח של PostgreSQL, המנוהל על ידי פלטפורמת הענן Railway. אנו שומרים את נתוני החיפוש כל עוד חשבונך פעיל.</p>
+
+        <h2>4. שיתוף מידע עם צדדים שלישיים</h2>
+        <p>אנו מתחייבים כי לא נמכור, נסחר, או נעביר את המידע האישי המזהה שלך (שם, אימייל) לצדדים שלישיים, למעט במקרים הבאים:</p>
+        <ul>
+            <li><strong>ספקי שירות (Google AI):</strong> אנו משתפים את נתוני החיפוש (יצרן, דגם, שנה וכו') עם Google Gemini API על מנת לקבל את ניתוח האמינות. גוגל אינה מקבלת מידע מזהה (שם או אימייל).</li>
+            <li><strong>חובות חוקיות:</strong> אם נדרש על פי צו בית משפט או חוק.</li>
+        </ul>
+
+        <h2>5. הצהרת אחריות (Disclaimer)</h2>
+        <p><strong>המידע המסופק על ידי yedaarechev.com הוא בגדר ייעוץ כללי בלבד. איננו אחראים לנכונות המידע, לדיוקו או להתאמתו לצרכיך. עליך לבצע בדיקה מקיפה ומקצועית של הרכב על ידי אנשי מקצוע מוסמכים לפני כל החלטת רכישה.</strong></p>
+    </div>
+</body>
+</html>
