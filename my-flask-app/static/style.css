@@ -1,0 +1,43 @@
+body {
+    max-width: 800px;
+    margin: auto;
+    padding: 1rem;
+}
+
+/* הסתרת אלמנטים */
+.hidden {
+    display: none;
+}
+
+/* עיצוב התוצאות */
+#results-container {
+    border: 1px solid var(--border);
+    border-radius: var(--border-radius);
+    padding: 1rem;
+    margin-top: 1.5rem;
+    background-color: var(--bg-light);
+}
+
+#results-content mark {
+    display: block;
+    padding: 0.5rem;
+    margin-bottom: 1rem;
+}
+
+/* עיצוב הודעת שגיאה */
+#results-content mark.error {
+    background-color: #ffcdd2;
+    color: #b71c1c;
+    font-weight: bold;
+}
+
+/* כפתור טעינה */
+#submit-button:disabled {
+    background-color: var(--border);
+    cursor: not-allowed;
+}
+
+/* אנימציית טעינה */
+progress {
+    width: 100%;
+}

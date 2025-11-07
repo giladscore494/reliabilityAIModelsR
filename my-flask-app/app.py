@@ -1,0 +1,450 @@
+# -*- coding: utf-8 -*-
+# ===========================================================
+# 🚗 Car Reliability Analyzer – Israel (v4.0.0 • Flask API)
+# ===========================================================
+
+import json, re, time, datetime, difflib, traceback, os
+from typing import Optional, Tuple, Any, Dict, List
+
+import pandas as pd
+from flask import Flask, render_template, request, jsonify
+from json_repair import repair_json
+import google.generativeai as genai
+import gspread
+from google.oauth2.service_account import Credentials
+
+# =========================
+# ========= CONFIG ========
+# =========================
+PRIMARY_MODEL = "gemini-2.5-flash"
+FALLBACK_MODEL = "gemini-1.5-flash-latest"
+RETRIES = 2
+RETRY_BACKOFF_SEC = 1.5
+GLOBAL_DAILY_LIMIT = 1000
+MAX_CACHE_DAYS = 45
+
+app = Flask(__name__)
+
+# =========================
+# ======== Secrets ========
+# =========================
+# !! חשוב: במקום st.secrets, אנחנו קוראים מ-Environment Variables
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
+GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
+
+if not GEMINI_API_KEY:
+    print("WARNING: חסר GEMINI_API_KEY")
+genai.configure(api_key=GEMINI_API_KEY)
+
+# =========================
+# === Models dictionary ===
+# =========================
+# (העתקתי את המילון שלך לכאן לנוחות, כי אין ייבוא)
+try:
+    # אם תרצה, תוכל ליצור קובץ car_models_dict.py ולייבא אותו
+    from car_models_dict import israeli_car_market_full_compilation
+except Exception:
+    israeli_car_market_full_compilation = {
+        "Volkswagen": ["Golf (2004-2025)", "Polo (2005-2025)", "Passat (2005-2025)", "Scirocco (2008-2017)"],
+        "Toyota": ["Corolla (2008-2025)", "Yaris (2008-2025)", "CHR (2016-2025)"],
+        "Mazda": ["Mazda3 (2003-2025)", "Mazda6 (2003-2021)", "CX-5 (2012-2025)"],
+    }
+
+# =========================
+# ===== Helper funcs ======
+# =========================
+def normalize_text(s: Any) -> str:
+    if s is None:
+        return ""
+    s = re.sub(r"\(.*?\)", " ", str(s))
+    s = re.sub(r"\s+", " ", s).strip().lower()
+    return s
+
+def similarity(a: str, b: str) -> float:
+    return difflib.SequenceMatcher(None, normalize_text(a), normalize_text(b)).ratio()
+
+def parse_year_range_from_model_label(model_label: str) -> Tuple[Optional[int], Optional[int]]:
+    m = re.search(r"\((\d{4})\s*-\s*(\d{4})\)", str(model_label))
+    return (int(m.group(1)), int(m.group(2))) if m else (None, None)
+
+def safe_json_parse(value: Any, default=None):
+    if value is None: return default
+    if isinstance(value, (list, dict)): return value
+    s = str(value)
+    if not s.strip(): return default
+    try: return json.loads(s)
+    except Exception:
+        try: return json.loads(repair_json(s))
+        except Exception: return default
+
+# =========================
+# ===== Sheets Layer ======
+# =========================
+REQUIRED_HEADERS = [
+    "date","user_id","make","model","sub_model","year","fuel","transmission",
+    "mileage_range","base_score_calculated","score_breakdown","avg_cost",
+    "issues","search_performed","reliability_summary","issues_with_costs",
+    "sources","recommended_checks","common_competitors_brief"
+]
+
+def connect_sheet():
+    if not (GOOGLE_SHEET_ID and GOOGLE_SERVICE_ACCOUNT_JSON):
+        raise ValueError("❌ אין חיבור למאגר (Secrets חסרים).")
+    try:
+        svc = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
+        if "\\n" in svc.get("private_key", ""):
+            svc["private_key"] = svc["private_key"].replace("\\n", "\n")
+
+        credentials = Credentials.from_service_account_info(
+            svc, scopes=["https://www.googleapis.com/auth/spreadsheets",
+                         "https://www.googleapis.com/auth/drive"]
+        )
+        gc = gspread.authorize(credentials)
+        sh = gc.open_by_key(GOOGLE_SHEET_ID)
+        ws = sh.sheet1
+        
+        current = [c.lower() for c in ws.row_values(1)]
+        if current != REQUIRED_HEADERS:
+            ws.update("A1", [REQUIRED_HEADERS], value_input_option="USER_ENTERED")
+        return ws
+    except Exception as e:
+        raise ConnectionError(f"❌ אין חיבור למאגר (שיתוף/הרשאות/Sheet): {e}")
+
+def sheet_to_df(ws) -> pd.DataFrame:
+    try:
+        recs = ws.get_all_records()
+        df = pd.DataFrame(recs) if recs else pd.DataFrame(columns=REQUIRED_HEADERS)
+    except Exception as e:
+        print(f"Error reading sheet: {e}")
+        return pd.DataFrame(columns=REQUIRED_HEADERS)
+    for h in REQUIRED_HEADERS:
+        if h not in df.columns: df[h] = ""
+    return df
+
+def append_row_to_sheet(ws, row_dict: dict):
+    row = [row_dict.get(k, "") for k in REQUIRED_HEADERS]
+    try:
+        ws.append_row(row, value_input_option="USER_ENTERED")
+    except Exception as e:
+        print(f"Error appending row: {e}")
+
+# =========================
+# ===== Limits/Quota ======
+# =========================
+def within_daily_global_limit(df: pd.DataFrame, limit=GLOBAL_DAILY_LIMIT) -> Tuple[bool, int]:
+    today = datetime.date.today().isoformat()
+    if df.empty or "date" not in df.columns: return True, 0
+    try: cnt = len(df[df["date"].astype(str) == today])
+    except Exception: cnt = 0
+    return (cnt < limit), cnt
+
+# =========================
+# ==== Mileage logic  =====
+# =========================
+def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
+    m = normalize_text(mileage_range or "")
+    if not m: return 0, None
+    if "200" in m and "+" in m: return -15, "הציון הותאם מטה עקב קילומטראז׳ גבוה מאוד (200K+)."
+    if "150" in m and "200" in m: return -10, "הציון הותאם מטה עקב קילומטראז׳ גבוה (150–200 אלף ק״מ)."
+    if "100" in m and "150" in m: return -5, "הציון הותאם מעט מטה עקב קילומטראז׳ בינוני-גבוה (100–150 אלף ק״מ)."
+    return 0, None
+
+def mileage_is_close(requested: str, stored: str, thr: float = 0.92) -> bool:
+    if requested is None or stored is None: return False
+    return similarity(str(requested), str(stored)) >= thr
+
+# =========================
+# ===== Cache lookup ======
+# =========================
+def match_hits_core(recent: pd.DataFrame, year: int, make: str, model: str, sub_model: Optional[str], th: float):
+    mk, md, sm = normalize_text(make), normalize_text(model), normalize_text(sub_model or "")
+    use_sub = len(sm) > 0
+    cand = recent[
+        (pd.to_numeric(recent["year"], errors="coerce").astype("Int64") == int(year)) &
+        (recent["make"].apply(lambda x: similarity(x, mk) >= th)) &
+        (recent["model"].apply(lambda x: similarity(x, md) >= th))
+    ]
+    if use_sub and "sub_model" in recent.columns:
+        cand = cand[cand["sub_model"].apply(lambda x: similarity(x, sm) >= th)]
+    if "date" in cand.columns:
+        try:
+            cand["date"] = pd.to_datetime(cand["date"], errors="coerce")
+            cand = cand.sort_values("date")
+        except Exception: pass
+    return cand
+
+def get_cached_from_sheet(ws, make: str, model: str, sub_model: str, year: int, mileage_range: str, max_days=MAX_CACHE_DAYS):
+    df = sheet_to_df(ws)
+    if df.empty:
+        return None, df, False, False
+    try:
+        df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        df["year"] = pd.to_numeric(df["year"], errors="coerce").astype("Int64")
+    except Exception: pass
+    cutoff = pd.Timestamp.now() - pd.Timedelta(days=max_days)
+    recent = df[df["date"] >= cutoff] if "date" in df.columns else df
+
+    used_fallback = False
+    mileage_matched = False
+    hits = pd.DataFrame()
+    for th in (0.97, 0.93):
+        hits = match_hits_core(recent, year, make, model, sub_model, th)
+        if not hits.empty: break
+    if hits.empty and sub_model:
+        used_fallback = True
+        for th in (0.97, 0.93):
+            hits = match_hits_core(recent, year, make, model, None, th)
+            if not hits.empty: break
+    if hits.empty:
+        return None, df, used_fallback, mileage_matched
+
+    req_mil = str(mileage_range or "")
+    def row_mil_sim(row):
+        stored = str(row.get("mileage_range", "") or "")
+        return similarity(req_mil, stored)
+    hits = hits.copy()
+    hits["__mil_sim"] = hits.apply(row_mil_sim, axis=1)
+    hits = hits.sort_values(["__mil_sim", "date"], ascending=[False, False])
+    best = hits.iloc[0]
+    mileage_matched = mileage_is_close(req_mil, best.get("mileage_range", ""))
+
+    def row_to_parsed(r: dict):
+        score_breakdown = safe_json_parse(r.get("score_breakdown"), {}) or {}
+        issues_with_costs = safe_json_parse(r.get("issues_with_costs"), []) or []
+        recommended_checks = safe_json_parse(r.get("recommended_checks"), []) or []
+        competitors = safe_json_parse(r.get("common_competitors_brief"), []) or []
+        sources = safe_json_parse(r.get("sources"), []) or r.get("sources","")
+        base_calc = r.get("base_score_calculated")
+        if base_calc in [None, "", "nan"]:
+            legacy_base = r.get("base_score")
+            try: base_calc = int(round(float(legacy_base)))
+            except Exception: base_calc = None
+        issues_raw = r.get("issues", [])
+        if isinstance(issues_raw, str) and issues_raw:
+            if ";" in issues_raw: issues_list = [x.strip() for x in issues_raw.split(";") if x.strip()]
+            elif "," in issues_raw: issues_list = [x.strip() for x in issues_raw.split(",") if x.strip()]
+            else: issues_list = [issues_raw.strip()]
+        elif isinstance(issues_raw, list): issues_list = [str(x).strip() for x in issues_raw if str(x).strip()]
+        else: issues_list = []
+        last_dt = r.get("date")
+        last_date_str = ""
+        if isinstance(last_dt, pd.Timestamp): last_date_str = str(last_dt.date())
+        elif last_dt: last_date_str = str(last_dt)[:10]
+
+        return {
+            "score_breakdown": score_breakdown,
+            "base_score_calculated": base_calc,
+            "common_issues": issues_list,
+            "avg_repair_cost_ILS": r.get("avg_cost"),
+            "issues_with_costs": issues_with_costs,
+            "reliability_summary": r.get("reliability_summary") or "",
+            "sources": sources,
+            "recommended_checks": recommended_checks,
+            "common_competitors_brief": competitors,
+            "last_date": last_date_str,
+            "cached_mileage_range": r.get("mileage_range", "")
+        }
+    parsed_row = row_to_parsed(best.to_dict())
+    parsed_row["is_aggregate"] = False
+    parsed_row["count"] = int(len(hits))
+    return parsed_row, df, used_fallback, mileage_matched
+
+# =========================
+# ===== Model calling =====
+# =========================
+def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_range):
+    extra = f" תת-דגם/תצורה: {sub_model}" if sub_model else ""
+    return f"""
+אתה מומחה לאמינות רכבים בישראל עם גישה לחיפוש אינטרנטי.
+הניתוח חייב להתייחס ספציפית לטווח הקילומטראז' הנתון.
+החזר JSON בלבד:
+
+{{
+  "search_performed": true,
+  "score_breakdown": {{
+    "engine_transmission_score": "מספר (1-10)",
+    "electrical_score": "מספר (1-10)",
+    "suspension_brakes_score": "מספר (1-10)",
+    "maintenance_cost_score": "מספר (1-10)",
+    "satisfaction_score": "מספר (1-10)",
+    "recalls_score": "מספר (1-10)"
+  }},
+  "base_score_calculated": "מספר (0-100)",
+  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
+  "avg_repair_cost_ILS": "מספר ממוצע",
+  "issues_with_costs": [
+    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
+  ],
+  "reliability_summary": "סיכום בעברית",
+  "sources": ["רשימת אתרים"],
+  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
+  "common_competitors_brief": [
+      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
+      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
+  ]
+}}
+
+רכב: {make} {model}{extra} {int(year)}
+טווח קילומטראז': {mileage_range}
+סוג דלק: {fuel_type}
+תיבת הילוכים: {transmission}
+כתוב בעברית בלבד.
+""".strip()
+
+def call_model_with_retry(prompt: str) -> dict:
+    last_err = None
+    for model_name in [PRIMARY_MODEL, FALLBACK_MODEL]:
+        try: llm = genai.GenerativeModel(model_name)
+        except Exception as e: last_err = e; continue
+        for attempt in range(1, RETRIES + 1):
+            try:
+                print(f"Calling model {model_name}...")
+                resp = llm.generate_content(prompt)
+                raw = (getattr(resp, "text", "") or "").strip()
+                try: m = re.search(r"\{.*\}", raw, re.DOTALL); data = json.loads(m.group()) if m else json.loads(raw)
+                except Exception: data = json.loads(repair_json(raw))
+                print("Model call successful.")
+                return data
+            except Exception as e:
+                print(f"Attempt {attempt} failed: {e}")
+                last_err = e
+                if attempt < RETRIES: time.sleep(RETRY_BACKOFF_SEC)
+                continue
+    raise RuntimeError(f"Model failed: {repr(last_err)}")
+
+# =========================
+# === Mileage Apply/Notes =
+# =========================
+def apply_mileage_logic(result_obj: dict, requested_mileage: str) -> Tuple[dict, Optional[str]]:
+    delta, note = mileage_adjustment(requested_mileage)
+    if delta != 0:
+        try: base = int(result_obj.get("base_score_calculated") or 0)
+        except Exception: base = 0
+        new_base = max(0, min(100, base + delta))
+        result_obj["base_score_calculated"] = new_base
+    return result_obj, note
+
+# =========================
+# ===== Flask Routes ======
+# =========================
+
+@app.route('/')
+def index():
+    """ מגיש את דף ה-HTML הראשי (הפרונטאנד) """
+    try:
+        # אנו שולחים לפרונטאנד את רשימת הרכבים כדי לבנות את התפריטים
+        return render_template('index.html', car_models_data=israeli_car_market_full_compilation)
+    except Exception as e:
+        print(f"Error rendering index: {e}")
+        return "<h1>Error loading page</h1><p>Could not load template. Check logs.</p>", 500
+
+
+@app.route('/analyze', methods=['POST'])
+def analyze_car():
+    """
+    זהו ה-API Endpoint.
+    הפרונטאנד שולח לכאן JSON עם נתוני הטופס,
+    אנחנו מחזירים JSON עם התוצאות.
+    """
+    try:
+        # 1. קבלת נתונים מהפרונטאנד
+        data = request.json
+        print(f"Received data: {data}")
+        final_make = normalize_text(data.get('make'))
+        final_model = normalize_text(data.get('model'))
+        final_sub_model = normalize_text(data.get('sub_model'))
+        final_year = int(data.get('year')) if data.get('year') else None
+        final_mileage = str(data.get('mileage_range'))
+        final_fuel = str(data.get('fuel_type'))
+        final_trans = str(data.get('transmission'))
+
+        # 2. Validation
+        if not (final_make and final_model and final_year):
+            return jsonify({"error": "נא למלא יצרן, דגם ושנה."}), 400
+        
+        # 3. התחברות ל-Sheets
+        try:
+            ws = connect_sheet()
+        except Exception as e:
+            print(f"Sheet connection error: {e}")
+            return jsonify({"error": str(e)}), 500
+
+        # 4. Cache Lookup
+        print("Checking cache...")
+        cached_result, df, used_fallback, mileage_matched = get_cached_from_sheet(
+            ws, final_make, final_model, final_sub_model, final_year, final_mileage
+        )
+
+        # 5. Quota Check
+        is_quota_ok, daily_count = within_daily_global_limit(df)
+
+        # 6. Handle Cache Hit
+        if cached_result:
+            print("Cache hit found.")
+            cached_result, note = apply_mileage_logic(cached_result, final_mileage)
+            # הוספת נתונים כדי שהפרונטאנד ידע איך להציג
+            source_tag = f"מקור: מטמון (נשמר ב-{cached_result.get('last_date', 'N/A')})"
+            if used_fallback: source_tag += " - ללא תת-דגם"
+            cached_result['source_tag'] = source_tag
+            cached_result['mileage_note'] = note
+            cached_result['km_warn'] = not mileage_matched
+            return jsonify(cached_result)
+
+        # 7. Handle Quota Miss
+        print("Cache miss. Checking quota...")
+        if not is_quota_ok:
+            print("Quota exceeded.")
+            return jsonify({"error": f"⛔️ המגבלה היומית הושגה ({daily_count}/{GLOBAL_DAILY_LIMIT}). המטמון נבדק, אך לא נמצאה התאמה."}), 429
+        
+        print(f"Quota OK. Proceeding to API call ({daily_count + 1}/{GLOBAL_DAILY_LIMIT})")
+        # 8. Call Model
+        prompt = build_prompt(
+            final_make, final_model, final_sub_model, final_year,
+            final_fuel, final_trans, final_mileage
+        )
+        model_output = call_model_with_retry(prompt)
+        
+        # 9. Apply Mileage Logic
+        model_output, note = apply_mileage_logic(model_output, final_mileage)
+
+        # 10. Save to Sheet
+        print("Saving new result to sheet...")
+        issues_list = model_output.get("common_issues", []) or []
+        issues_str = "; ".join([str(i) for i in issues_list if str(i).strip()])
+        def safe_json_dump(data):
+            try: return json.dumps(data, ensure_ascii=False)
+            except Exception: return "[]" if isinstance(data, list) else "{}"
+
+        save_row = {
+            "date": datetime.date.today().isoformat(), "user_id": "global_flask_v1",
+            "make": final_make, "model": final_model, "sub_model": final_sub_model,
+            "year": final_year, "fuel": final_fuel, "transmission": final_trans,
+            "mileage_range": final_mileage,
+            "base_score_calculated": model_output.get("base_score_calculated"),
+            "score_breakdown": safe_json_dump(model_output.get("score_breakdown", {})),
+            "avg_cost": model_output.get("avg_repair_cost_ILS"), "issues": issues_str,
+            "search_performed": model_output.get("search_performed", True),
+            "reliability_summary": model_output.get("reliability_summary"),
+            "issues_with_costs": safe_json_dump(model_output.get("issues_with_costs", [])),
+            "sources": safe_json_dump(model_output.get("sources", [])),
+            "recommended_checks": safe_json_dump(model_output.get("recommended_checks", [])),
+            "common_competitors_brief": safe_json_dump(model_output.get("common_competitors_brief", []))
+        }
+        append_row_to_sheet(ws, save_row)
+        print("Save complete.")
+
+        # 11. Return NEW result
+        model_output['source_tag'] = f"מקור: ניתוח AI חדש (שימוש {daily_count + 1}/{GLOBAL_DAILY_LIMIT})"
+        model_output['mileage_note'] = note
+        model_output['km_warn'] = False
+        return jsonify(model_output)
+
+    except Exception as e:
+        print(f"!!! SERVER ERROR: {e}")
+        traceback.print_exc()
+        return jsonify({"error": f"שגיאת שרת פנימית: {str(e)}"}), 500
+
+if __name__ == '__main__':
+    # פקודה זו מיועדת לפיתוח מקומי בלבד. Railway ישתמש ב-Gunicorn.
+    app.run(debug=True, port=os.environ.get('PORT', 5001))

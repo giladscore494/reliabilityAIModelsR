@@ -1,0 +1,7 @@
+Flask
+gunicorn
+pandas
+json-repair
+google-generativeai
+gspread
+google-auth

@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚗 Car Reliability Analyzer</title>
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header>
+        <h1>🚗 Car Reliability Analyzer – בדיקת אמינות רכב בישראל</h1>
+        <p>מופעל על ידי Flask ו-Gemini API</p>
+    </header>
+
+    <main>
+        <form id="car-form">
+            <h3>🔍 בחירת רכב</h3>
+            
+            <label for="make">יצרן:</label>
+            <select id="make" name="make" required>
+                <option value="">בחר יצרן...</option>
+                {% for make in car_models_data.keys()|sort %}
+                    <option value="{{ make }}">{{ make }}</option>
+                {% endfor %}
+            </select>
+
+            <label for="model">דגם:</label>
+            <select id="model" name="model" required disabled>
+                <option value="">בחר יצרן תחילה...</option>
+            </select>
+
+            <label for="year">שנת הרכב:</label>
+            <select id="year" name="year" required disabled>
+                <option value="">בחר דגם תחילה...</option>
+            </select>
+
+            <label for="sub_model">תת-דגם (אופציונלי):</label>
+            <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: 'Lounge', '1.6 ליטר', 'GLI'">
+
+            <h3>📋 פרטים נוספים</h3>
+            
+            <label for="mileage_range">טווח קילומטראז':</label>
+            <select id="mileage_range" name="mileage_range">
+                <option>עד 50,000 ק"מ</option>
+                <option>50,000 - 100,000 ק"מ</option>
+                <option selected>100,000 - 150,000 ק"מ</option>
+                <option>150,000 - 200,000 ק"מ</option>
+                <option>200,000+ ק"מ</option>
+            </select>
+
+            <label for="fuel_type">סוג דלק:</label>
+            <select id="fuel_type" name="fuel_type">
+                <option selected>בנזין</option>
+                <option>דיזל</option>
+                <option>היברידי</option>
+                <option>חשמלי</option>
+                <option>אחר</option>
+            </select>
+
+            <label for="transmission">תיבת הילוכים:</label>
+            <select id="transmission" name="transmission">
+                <option selected>אוטומטית</option>
+                <option>ידנית</option>
+            </select>
+
+            <br>
+            <button type="submit" id="submit-button">🚀 בצע ניתוח אמינות</button>
+        </form>
+
+        <div id="results-container" class="hidden">
+            <h2>תוצאות הניתוח</h2>
+            <div id="results-content">
+                </div>
+        </div>
+        
+    </main>
+
+    <script>
+        const carModelsData = {{ car_models_data | tojson }};
+    </script>
+    <script src="/static/script.js"></script>
+</body>
+</html>
