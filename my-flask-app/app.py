@@ -166,10 +166,8 @@ def create_app():
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') 
     
-    # בדיקות תקינות למקרה שהמשתנים לא נטענו
     if not app.config['SQLALCHEMY_DATABASE_URI']:
         print("CRITICAL ERROR: DATABASE_URL is not set.")
-        # במקרה חירום, נגדיר DB זמני כדי שהאפליקציה לפחות תעלה
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         
     if not app.config['SECRET_KEY']:
@@ -338,6 +336,7 @@ def create_app():
         try:
             today_start = datetime.combine(datetime.today().date(), time.min)
             today_end = datetime.combine(datetime.today().date(), time.max)
+            # ★★★ תיקון קריטי: צריך לספור מ-SearchHistory, לא SearchLog
             global_searches_today = SearchHistory.query.filter(
                 SearchHistory.timestamp >= today_start,
                 SearchHistory.timestamp <= today_end
@@ -381,6 +380,7 @@ def create_app():
             db.session.rollback()
 
         # --- סיום: החזרת תשובה ---
+        # ★★★ תיקון קריטי: צריך להשתמש ב-user_searches_today
         model_output['source_tag'] = f"מקור: ניתוח AI חדש (חיפוש {user_searches_today + 1}/{USER_DAILY_LIMIT})"
         model_output['mileage_note'] = note
         model_output['km_warn'] = False
@@ -391,23 +391,26 @@ def create_app():
     def init_db_command():
         """יוצר את טבלאות בסיס הנתונים."""
         # קוד זה רץ בתוך ההקשר של האפליקציה, כך שיש לו גישה ל-DB
-        db.create_all()
+        with app.app_context(): # יוצר הקשר אפליקציה ידני
+            db.create_all()
         print("Initialized the database tables.")
 
     # --- 4G. החזרת האפליקציה ---
     return app
 
-
 # ===================================================================
 # ===== ★★★ 5. נקודת כניסה (ל-Gunicorn ו-Flask CLI) ★★★ ======
 # ===================================================================
-# אנחנו *כן* יוצרים כאן app, אבל רק כדי שהפקודה `flask init-db` תעבוד.
-# היא לא תרוץ בזמן ה-build כי היא לא תנסה להתחבר ל-DB מיד.
-# Gunicorn ישתמש בפונקציה `create_app()` ישירות (כפי שמוגדר ב-Procfile).
-app = create_app()
-
+# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
+# ---
+# ---    כאן היה התיקון הקריטי: מחקנו את השורה 'app = create_app()'
+# ---    כדי למנוע קריסה בזמן הבנייה.
+# ---
+# ★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★★
 
 if __name__ == '__main__':
     # הרצה מקומית בלבד
+    # ניצור אפליקציה רק אם מריצים את הקובץ ישירות
+    app = create_app()
     port = int(os.environ.get('PORT', 5001))
     app.run(debug=True, port=port)
