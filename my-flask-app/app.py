@@ -2,6 +2,7 @@
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
 # v7.1.0 (Final Code with Legal Routes + 18+ front-gate in UI)
+# With Dynamic Google OAuth Redirect URI (yedaarechev.com / Railway)
 # ===================================================================
 
 import os, re, json, traceback
@@ -188,6 +189,21 @@ def create_app():
     app = Flask(__name__)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
+    # פונקציה חכמה לבחירת redirect_uri
+    def get_redirect_uri():
+        """
+        Returns the correct OAuth redirect URI for Google login.
+        Uses yedaarechev.com only when it's actually being used
+        and the SSL is active, otherwise fallback to Railway.
+        """
+        domain = request.host or ""
+        if "yedaarechev.com" in domain:
+            uri = "https://yedaarechev.com/auth"
+        else:
+            uri = "https://reliabilityaimodelsr-production.up.railway.app/auth"
+        print(f"[AUTH] Using redirect_uri={uri} (host={domain})")
+        return uri
+
     # Secrets
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
@@ -232,11 +248,7 @@ def create_app():
 
     @app.route('/login')
     def login():
-        domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '127.0.0.1:5001')
-        redirect_uri = f"https://{domain}/auth"
-        if '127.0.0.1' in redirect_uri:
-            redirect_uri = f"http://{domain}/auth"
-        print(f"[AUTH] redirect_uri={redirect_uri}")
+        redirect_uri = get_redirect_uri()
         return oauth.google.authorize_redirect(redirect_uri, state=None)
 
     @app.route('/auth')
