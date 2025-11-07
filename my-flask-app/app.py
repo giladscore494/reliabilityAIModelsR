@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v6.5.2 (FINAL Auth Fix + Proxy + Safe Mileage + Dict Debug)
+# v7.1.0 (Final Code with Legal Routes)
 # ===================================================================
 
 import os, re, json, difflib, traceback
@@ -70,7 +70,7 @@ class SearchHistory(db.Model):
 def load_user(user_id):
     return User.query.get(int(user_id))
 
-# --- טעינת המילון עם דיבאג בולט ---
+# --- טעינת המילון ---
 try:
     from car_models_dict import israeli_car_market_full_compilation
     print(f"[DICT] ✅ Loaded car_models_dict successfully. Manufacturers: {len(israeli_car_market_full_compilation)}")
@@ -124,28 +124,28 @@ def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_
 החזר JSON בלבד:
 
 {{
-  "search_performed": true,
-  "score_breakdown": {{
-    "engine_transmission_score": "מספר (1-10)",
-    "electrical_score": "מספר (1-10)",
-    "suspension_brakes_score": "מספר (1-10)",
-    "maintenance_cost_score": "מספר (1-10)",
-    "satisfaction_score": "מספר (1-10)",
-    "recalls_score": "מספר (1-10)"
-  }},
-  "base_score_calculated": "מספר (0-100)",
-  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
-  "avg_repair_cost_ILS": "מספר ממוצע",
-  "issues_with_costs": [
-    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
-  ],
-  "reliability_summary": "סיכום בעברית",
-  "sources": ["רשימת אתרים"],
-  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
-  "common_competitors_brief": [
-      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
-      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
-  ]
+  "search_performed": true,
+  "score_breakdown": {{
+    "engine_transmission_score": "מספר (1-10)",
+    "electrical_score": "מספר (1-10)",
+    "suspension_brakes_score": "מספר (1-10)",
+    "maintenance_cost_score": "מספר (1-10)",
+    "satisfaction_score": "מספר (1-10)",
+    "recalls_score": "מספר (1-10)"
+  }},
+  "base_score_calculated": "מספר (0-100)",
+  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
+  "avg_repair_cost_ILS": "מספר ממוצע",
+  "issues_with_costs": [
+    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
+  ],
+  "reliability_summary": "סיכום בעברית",
+  "sources": ["רשימת אתרים"],
+  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
+  "common_competitors_brief": [
+      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
+      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
+  ]
 }}
 
 רכב: {make} {model}{extra} {int(year)}
@@ -185,44 +185,43 @@ def call_model_with_retry(prompt: str) -> dict:
     raise RuntimeError(f"Model failed: {repr(last_err)}")
 
 # ========================================
-# ===== 4. פונקציית ה-Factory של Flask ===
+# ===== ★★★ 4. פונקציית ה-Factory ★★★ ======
 # ========================================
 def create_app():
+    """
+    יוצר ומגדיר את אפליקציית Flask.
+    """
     app = Flask(__name__)
-
-    # Proxy/HTTPS behind Railway/NGINX
+    
+    # --- התיקון הקריטי: ProxyFix ל-HTTPS ו-Session
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    app.config['PREFERRED_URL_SCHEME'] = 'https'
-    if os.environ.get("FLASK_ENV") == "production":
-        app.config['SESSION_COOKIE_SECURE'] = True
-        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-
-    # Secrets
+    
+    # --- 4A. טעינת הגדרות (Secrets) ---
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
-
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') 
+    
     if not app.config['SQLALCHEMY_DATABASE_URI']:
         print("[BOOT] ⚠️ DATABASE_URL not set. Using in-memory sqlite.")
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-
+        
     if not app.config['SECRET_KEY']:
         print("[BOOT] ⚠️ SECRET_KEY not set. Using dev fallback.")
         app.config['SECRET_KEY'] = 'dev-secret-key-that-is-not-secret'
 
-    # Init extensions
+    # --- 4B. אתחול ההרחבות עם האפליקציה ---
     db.init_app(app)
     login_manager.init_app(app)
     oauth.init_app(app)
 
-    login_manager.login_view = 'index'
+    login_manager.login_view = 'index' # הגדרה מחדש
 
-    # Gemini
+    # --- 4C. הגדרת סודות נוספים ---
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if not GEMINI_API_KEY:
         print("[AI] ⚠️ GEMINI_API_KEY missing")
     genai.configure(api_key=GEMINI_API_KEY)
 
-    # OAuth Google — OIDC discovery + claims_options for iss
+    # --- 4D. רישום ספק ה-OAuth (גוגל) ---
     google = oauth.register(
         name='google',
         client_id=os.environ.get('GOOGLE_CLIENT_ID'),
@@ -236,43 +235,21 @@ def create_app():
         }
     )
 
-    # ------------------ Routes ------------------
-
-    @app.route('/health')
-    def health():
-        return jsonify({"ok": True, "time": datetime.now().isoformat()})
-
+    # --- 4E. רישום ה-Routes (נתיבים) ---
+    
     @app.route('/')
     def index():
-        # דיבאג — לבדוק שהמילון באמת מגיע לפרונט
-        try:
-            makes_count = len(israeli_car_market_full_compilation)
-            print(f"[INDEX] Rendering with {makes_count} manufacturers")
-        except Exception as e:
-            print(f"[INDEX] ⚠️ Could not count manufacturers: {e}")
-        return render_template(
-            'index.html',
-            car_models_data=israeli_car_market_full_compilation,
-            user=current_user
-        )
+        return render_template('index.html', 
+                               car_models_data=israeli_car_market_full_compilation, 
+                               user=current_user)
 
     @app.route('/login')
     def login():
-        # build redirect_uri robustly behind proxy
-        try:
-            redirect_uri = url_for('auth', _external=True)
-            if os.environ.get("FLASK_ENV") == "production" and redirect_uri.startswith("http://"):
-                redirect_uri = redirect_uri.replace("http://", "https://", 1)
-        except Exception:
-            domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '127.0.0.1:5001')
-            redirect_uri = f"https://{domain}/auth"
-            if '127.0.0.1' in redirect_uri:
-                redirect_uri = f"http://{domain}/auth"
-
-        # דיבאג פרוטוקול שמגיע מכותרות הפרוקסי
-        xf_proto = request.headers.get("X-Forwarded-Proto")
-        xf_host = request.headers.get("X-Forwarded-Host")
-        print(f"[AUTH] Redirecting to Google. redirect_uri={redirect_uri} X-Forwarded-Proto={xf_proto} X-Forwarded-Host={xf_host}")
+        domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '127.0.0.1:5001')
+        redirect_uri = f"https://{domain}/auth"
+        if '127.0.0.1' in redirect_uri:
+            redirect_uri = f"http://{domain}/auth"
+        print(f"[AUTH] Redirecting to Google. redirect_uri={redirect_uri}")
 
         # state=None כדי לעקוף MismatchingState בסביבות פרוקסי
         return google.authorize_redirect(redirect_uri, state=None)
@@ -281,14 +258,7 @@ def create_app():
     def auth():
         try:
             token = google.authorize_access_token()
-            # לוג בסיסי על ה-token (ללא הדפסה של ערכים רגישים)
-            print(f"[AUTH] ✅ Access token received. Keys: {list(token.keys()) if isinstance(token, dict) else 'n/a'}")
-
             userinfo = google.get('userinfo').json()
-            print(f"[AUTH] userinfo keys: {list(userinfo.keys()) if isinstance(userinfo, dict) else 'n/a'}")
-
-            if not userinfo or not userinfo.get('id'):
-                raise RuntimeError("Userinfo missing or invalid.")
 
             user = User.query.filter_by(google_id=userinfo['id']).first()
             if not user:
@@ -309,13 +279,25 @@ def create_app():
                 logout_user()
             except Exception:
                 pass
-            return redirect(url_for('index'))
+            return redirect(url_for('logout')) # נשלח ל-logout לשבור את המעגל האינסופי
 
     @app.route('/logout')
     @login_required
     def logout():
         logout_user()
         return redirect(url_for('index'))
+    
+    # --- ★★★ נתיבים חדשים למסמכים משפטיים ★★★ ---
+    @app.route('/privacy')
+    def privacy():
+        """ מציג את מדיניות הפרטיות """
+        return render_template('privacy.html', user=current_user)
+
+    @app.route('/terms')
+    def terms():
+        """ מציג את תקנון השימוש """
+        return render_template('terms.html', user=current_user)
+    # ---------------------------------------------
 
     @app.route('/dashboard')
     @login_required
@@ -400,6 +382,7 @@ def create_app():
             print(f"[ANALYZE] cache check error: {e}")
 
         # --- שלב 4: Gemini ---
+        global_searches_today = 0
         try:
             today_start = datetime.combine(datetime.today().date(), time.min)
             today_end = datetime.combine(datetime.today().date(), time.max)
@@ -407,6 +390,7 @@ def create_app():
                 SearchHistory.timestamp >= today_start,
                 SearchHistory.timestamp <= today_end
             ).count()
+            
             if global_searches_today >= GLOBAL_DAILY_LIMIT:
                 print("[ANALYZE 4/6] global limit reached")
                 return jsonify({"error": f"שגיאת שרת (שלב 4): המגבלה הגלובלית הושגה ({global_searches_today}/{GLOBAL_DAILY_LIMIT}). נסה שוב מאוחר יותר."}), 503
@@ -450,6 +434,7 @@ def create_app():
 
     @app.cli.command("init-db")
     def init_db_command():
+        """יוצר את טבלאות בסיס הנתונים."""
         with app.app_context():
             db.create_all()
         print("Initialized the database tables.")
