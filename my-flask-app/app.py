@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
-# 🚗 Car Reliability Analyzer – Israel (v6.5.0 • FINAL Auth Fix + Syntax)
+# 🚗 Car Reliability Analyzer – Israel (v6.5.1 • FINAL Auth Fix + Proxy + Safe Mileage Logic)
 # ===================================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -40,7 +40,7 @@ RETRIES = 2
 RETRY_BACKOFF_SEC = 1.5
 GLOBAL_DAILY_LIMIT = 1000
 USER_DAILY_LIMIT = 5
-MAX_CACHE_DAYS = 45 
+MAX_CACHE_DAYS = 45
 
 # ==================================
 # === 2. הגדרת מודלים של DB (גלובלי) ===
@@ -93,6 +93,31 @@ def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
     if "100" in m and "150" in m: return -5, "הציון הותאם מעט מטה עקב קילומטראז׳ בינוני-גבוה (100–150 אלף ק״מ)."
     return 0, None
 
+def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, Optional[str]]:
+    """
+    השלמה בטוחה: אם המודל החזיר base_score_calculated מספרי — ניישם התאמה לפי ק״מ.
+    אם לא – לא ניגע. הפונקציה מחזירה (model_output_after, note_str).
+    """
+    try:
+        adj, note = mileage_adjustment(mileage_range)
+        # נסה לקרוא ציון בסיסי כמספר
+        base_key = "base_score_calculated"
+        if base_key in model_output:
+            # הרמוניזציה — לפעמים מגיע כמחרוזת
+            try:
+                base_val = float(model_output[base_key])
+            except Exception:
+                # נסה לחלץ מספר מתוך מחרוזת
+                m = re.search(r"-?\d+(\.\d+)?", str(model_output[base_key]))
+                base_val = float(m.group()) if m else None
+            if base_val is not None:
+                new_val = max(0.0, min(100.0, base_val + adj))
+                model_output[base_key] = round(new_val, 1)
+        return model_output, note
+    except Exception:
+        # במקרה של שגיאה לא עוצרים את הזרימה
+        return model_output, None
+
 # --- פונקציות מודל ---
 def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_range):
     extra = f" תת-דגם/תצורה: {sub_model}" if sub_model else ""
@@ -136,21 +161,28 @@ def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_
 def call_model_with_retry(prompt: str) -> dict:
     last_err = None
     for model_name in [PRIMARY_MODEL, FALLBACK_MODEL]:
-        try: llm = genai.GenerativeModel(model_name)
-        except Exception as e: last_err = e; continue
+        try:
+            llm = genai.GenerativeModel(model_name)
+        except Exception as e:
+            last_err = e
+            continue
         for attempt in range(1, RETRIES + 1):
             try:
                 print(f"Calling model {model_name}...")
                 resp = llm.generate_content(prompt)
                 raw = (getattr(resp, "text", "") or "").strip()
-                try: m = re.search(r"\{.*\}", raw, re.DOTALL); data = json.loads(m.group()) if m else json.loads(raw)
-                except Exception: data = json.loads(repair_json(raw))
+                try:
+                    m = re.search(r"\{.*\}", raw, re.DOTALL)
+                    data = json.loads(m.group()) if m else json.loads(raw)
+                except Exception:
+                    data = json.loads(repair_json(raw))
                 print("Model call successful.")
                 return data
             except Exception as e:
                 print(f"Attempt {attempt} failed: {e}")
                 last_err = e
-                if attempt < RETRIES: time.sleep(RETRY_BACKOFF_SEC)
+                if attempt < RETRIES:
+                    time.sleep(RETRY_BACKOFF_SEC)
                 continue
     raise RuntimeError(f"Model failed: {repr(last_err)}")
 
@@ -162,19 +194,23 @@ def create_app():
     יוצר ומגדיר את אפליקציית Flask.
     """
     app = Flask(__name__)
-    
-    # --- ★★★ התיקון: להגיד ל-Flask שהוא מאחורי פרוקסי ★★★ ---
-    # זה פותר את שגיאת MismatchingStateError (שהיא ה-redirect loop)
+
+    # --- ★★★ תיקון פרוקסי ו־HTTPS מאחורי Railway/NGINX ★★★
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
-    
+    app.config['PREFERRED_URL_SCHEME'] = 'https'
+    # אופציונלי להגברת אבטחה סשן בפרודקשן:
+    if os.environ.get("FLASK_ENV") == "production":
+        app.config['SESSION_COOKIE_SECURE'] = True
+        app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+
     # --- 4A. טעינת הגדרות (Secrets) ---
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
-    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') 
-    
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
+
     if not app.config['SQLALCHEMY_DATABASE_URI']:
         print("CRITICAL ERROR: DATABASE_URL is not set.")
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
-        
+
     if not app.config['SECRET_KEY']:
         print("CRITICAL ERROR: SECRET_KEY is not set.")
         app.config['SECRET_KEY'] = 'dev-secret-key-that-is-not-secret'
@@ -184,7 +220,7 @@ def create_app():
     login_manager.init_app(app)
     oauth.init_app(app)
 
-    login_manager.login_view = 'index' # הגדרה מחדש
+    login_manager.login_view = 'index'  # הגדרה מחדש
 
     # --- 4C. הגדרת סודות נוספים ---
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -193,70 +229,87 @@ def create_app():
     genai.configure(api_key=GEMINI_API_KEY)
 
     # --- 4D. רישום ספק ה-OAuth (גוגל) ---
+    # תיקון מרכזי: הגדרת server_metadata_url (OIDC discovery) + claims_options כדי
+    # לאפשר את שני הערכים התקינים של iss של Google: עם וללא https.
     google = oauth.register(
         name='google',
         client_id=os.environ.get('GOOGLE_CLIENT_ID'),
         client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
-        access_token_url='https://accounts.google.com/o/oauth2/token',
-        access_token_params=None,
-        authorize_url='https://accounts.google.com/o/oauth2/auth',
-        authorize_params=None,
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
         api_base_url='https://www.googleapis.com/oauth2/v1/',
         userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
-        client_kwargs={'scope': 'openid email profile'},
-        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration'
+        # ★★★ מפתח: מניעת InvalidClaimError על 'iss' באמצעות רשימת ערכים חוקיים ★★★
+        claims_options={
+            'iss': {'values': ['https://accounts.google.com', 'accounts.google.com']}
+        }
     )
 
     # --- 4E. רישום ה-Routes (נתיבים) ---
-    
     @app.route('/')
     def index():
-        return render_template('index.html', 
-                               car_models_data=israeli_car_market_full_compilation, 
-                               user=current_user)
+        return render_template(
+            'index.html',
+            car_models_data=israeli_car_market_full_compilation,
+            user=current_user
+        )
 
     @app.route('/login')
     def login():
-        """ מתחיל את תהליך ההתחברות מול גוגל """
-        domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '127.0.0.1:5001')
-        redirect_uri = f"https://{domain}/auth"
-        if '127.0.0.1' in redirect_uri:
-            redirect_uri = f"http://{domain}/auth"
+        """מתחיל את תהליך ההתחברות מול גוגל"""
+        # הפקה יציבה של redirect_uri מאחורי פרוקסי, עם HTTPS בפרודקשן
+        try:
+            redirect_uri = url_for('auth', _external=True)
+            # אם בסביבה מוגדרת כפרודקשן – הכריחו https (ProxyFix + header)
+            if os.environ.get("FLASK_ENV") == "production" and redirect_uri.startswith("http://"):
+                redirect_uri = redirect_uri.replace("http://", "https://", 1)
+        except Exception:
+            # fallback תואם ההגדרה הקודמת עם RAILWAY_PUBLIC_DOMAIN
+            domain = os.environ.get('RAILWAY_PUBLIC_DOMAIN', '127.0.0.1:5001')
+            redirect_uri = f"https://{domain}/auth"
+            if '127.0.0.1' in redirect_uri:
+                redirect_uri = f"http://{domain}/auth"
+
         print(f"DEBUG: Redirecting to Google with callback URI: {redirect_uri}")
-        
-        # ★★★ הוספנו state=None כדי לדלג על ה-CSRF check ב-Authlib ★★★
-        return google.authorize_redirect(redirect_uri, state=None) 
+
+        # השארנו state=None בהתאם לבקשתך כדי להימנע מתקלת CSRF בסביבות פרוקסי
+        return google.authorize_redirect(redirect_uri, state=None)
 
     @app.route('/auth')
     def auth():
-        """ גוגל מחזיר את המשתמש לכאן אחרי התחברות מוצלחת """
+        """גוגל מחזיר את המשתמש לכאן אחרי התחברות מוצלחת"""
         try:
-            # זה מתקשר לגוגל כדי לקבל את ה-access token
-            token = google.authorize_access_token() 
-            
-            # ★★★ אנחנו קוראים את פרטי המשתמש ישירות מ-API כדי לדלג על אימות ID Token ★★★
-            userinfo = google.get('userinfo').json() 
+            # מקבל את ה-access token ומבצע אימות OIDC לפי ה־server_metadata_url
+            token = google.authorize_access_token()
+
+            # שליפה מיידית של פרטי משתמש (מקטינה תלות ב־id_token parsing פנימי)
+            userinfo = google.get('userinfo').json()
+
+            if not userinfo or not userinfo.get('id'):
+                raise RuntimeError("Userinfo missing or invalid.")
 
             # בדוק אם המשתמש קיים ב-DB
             user = User.query.filter_by(google_id=userinfo['id']).first()
             if not user:
-                # אם לא, צור משתמש חדש
                 user = User(
                     google_id=userinfo['id'],
-                    email=userinfo['email'],
-                    name=userinfo['name']
+                    email=userinfo.get('email', ''),
+                    name=userinfo.get('name', '')
                 )
                 db.session.add(user)
                 db.session.commit()
-            
-            # בצע כניסה למערכת
+
             login_user(user)
-            return redirect(url_for('index')) # חזור לדף הבית
+            return redirect(url_for('index'))  # חזרה לדף הבית
         except Exception as e:
             print(f"!!! שגיאת Auth: {e}")
             traceback.print_exc()
-            # אם נכשל, נשלח ללוגאוט כדי לשבור את המעגל האינסופי
-            return redirect(url_for('logout')) 
+            # ניקוי סשן התחברות במקרה של לופ
+            try:
+                logout_user()
+            except Exception:
+                pass
+            return redirect(url_for('index'))
 
     @app.route('/logout')
     @login_required
@@ -268,7 +321,9 @@ def create_app():
     @login_required
     def dashboard():
         try:
-            user_searches = SearchHistory.query.filter_by(user_id=current_user.id).order_by(SearchHistory.timestamp.desc()).all()
+            user_searches = SearchHistory.query.filter_by(
+                user_id=current_user.id
+            ).order_by(SearchHistory.timestamp.desc()).all()
             searches_data = []
             for search in user_searches:
                 search_data = {
@@ -306,7 +361,7 @@ def create_app():
             print(f"DEBUG (1/6): Checking user quota for user {current_user.id}...")
             today_start = datetime.combine(datetime.today().date(), time.min)
             today_end = datetime.combine(datetime.today().date(), time.max)
-            
+
             user_searches_today = SearchHistory.query.filter(
                 SearchHistory.user_id == current_user.id,
                 SearchHistory.timestamp >= today_start,
@@ -316,7 +371,7 @@ def create_app():
             if user_searches_today >= USER_DAILY_LIMIT:
                 print(f"!!! שגיאה (שלב 1): משתמש {current_user.id} חרג מהמגבלה.")
                 return jsonify({"error": f"שגיאת מגבלה (שלב 1): ניצלת את {USER_DAILY_LIMIT} החיפושים היומיים שלך. נסה שוב מחר."}), 429
-            
+
             print(f"DEBUG (1/6): User quota OK ({user_searches_today}/{USER_DAILY_LIMIT}).")
         except Exception as e:
             print(f"!!! שגיאה (שלב 1): נכשל בבדיקת מגבלת משתמש.")
@@ -327,7 +382,7 @@ def create_app():
         try:
             print("DEBUG (2/6): Fetching cache from DB...")
             cutoff_date = datetime.now() - timedelta(days=MAX_CACHE_DAYS)
-            
+
             cached_result_db = SearchHistory.query.filter(
                 SearchHistory.make == final_make,
                 SearchHistory.model == final_model,
@@ -347,7 +402,8 @@ def create_app():
             print("DEBUG (3/6): Cache miss. Proceeding to API call.")
         except Exception as e:
             print(f"!!! שגיאה (שלב 2): נכשל בחיפוש במטמון ב-DB. {e}")
-            pass # לא עוצרים
+            # לא עוצרים
+            pass
 
         # --- שלב 4: פנייה ל-Gemini ---
         global_searches_today = 0
@@ -358,7 +414,7 @@ def create_app():
                 SearchHistory.timestamp >= today_start,
                 SearchHistory.timestamp <= today_end
             ).count()
-            
+
             if global_searches_today >= GLOBAL_DAILY_LIMIT:
                 print(f"!!! שגיאה (שלב 4): המגבלה הגלובלית הושגה.")
                 return jsonify({"error": f"שגיאת שרת (שלב 4): המגבלה הגלובלית הושגה ({global_searches_today}/{GLOBAL_DAILY_LIMIT}). נסה שוב מאוחר יותר."}), 503
@@ -383,11 +439,11 @@ def create_app():
         try:
             print(f"DEBUG (6/6): Saving new result to DB for user {current_user.id}...")
             new_log = SearchHistory(
-                user_id = current_user.id,
-                make = final_make, model = final_model, year = final_year,
-                mileage_range = final_mileage, fuel_type = final_fuel,
-                transmission = final_trans,
-                result_json = json.dumps(model_output, ensure_ascii=False)
+                user_id=current_user.id,
+                make=final_make, model=final_model, year=final_year,
+                mileage_range=final_mileage, fuel_type=final_fuel,
+                transmission=final_trans,
+                result_json=json.dumps(model_output, ensure_ascii=False)
             )
             db.session.add(new_log)
             db.session.commit()
