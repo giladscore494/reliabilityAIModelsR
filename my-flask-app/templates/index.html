@@ -10,17 +10,17 @@
     <header>
         <div class="user-corner">
             {% if user.is_authenticated %}
-                <span>שלום, {{ user.name.split(' ')[0] }}</span>
+                <span>שלום, {{ user.name.split(' ')[0] if user.name else 'משתמש' }}</span>
                 <a href="/dashboard" class="user-button">החיפושים שלי</a>
                 <a href="/logout" class="user-button logout">התנתק</a>
             {% else %}
                 <a href="/login" class="user-button login">התחבר עם גוגל</a>
             {% endif %}
         </div>
-        
+
         <div class="header-content">
             <h1>🚗 Car Reliability Analyzer</h1>
-            <p>בדיקת אמינות רכב בישראל (מופעל ע"י Gemini ו-Flask)</p>
+            <p>בדיקת אמינות רכב בישראל (Gemini + Flask)</p>
         </div>
     </header>
 
@@ -29,15 +29,16 @@
         <div class="login-prompt">
             <h3>ברוך הבא!</h3>
             <p>כדי לבצע חיפושים, עליך להתחבר עם חשבון גוגל.</p>
-            <a href="/login" class="user-button login" style="font-size: 1.1rem; padding: 0.8rem 1.5rem;">התחבר עם גוגל</a>
+            <a href="/login" class="user-button login" style="font-size: 1.05rem; padding: 0.7rem 1.2rem;">התחבר עם גוגל</a>
         </div>
-        
-        <form id="car-form" class="hidden"> 
+
+        <!-- משאירים את הטופס ב-DOM אבל מוסתרים כדי שלא יכסה/יטריד בעימוד -->
+        <form id="car-form" class="hidden" aria-hidden="true">
         {% else %}
         <form id="car-form">
         {% endif %}
-            
             <h3>🔍 בחירת רכב</h3>
+
             <div class="form-grid-3">
                 <div class="form-group">
                     <label for="make">יצרן:</label>
@@ -48,12 +49,14 @@
                         {% endfor %}
                     </select>
                 </div>
+
                 <div class="form-group">
                     <label for="model">דגם:</label>
                     <select id="model" name="model" required disabled>
                         <option value="">בחר יצרן תחילה...</option>
                     </select>
                 </div>
+
                 <div class="form-group">
                     <label for="year">שנת הרכב:</label>
                     <select id="year" name="year" required disabled>
@@ -61,7 +64,7 @@
                     </select>
                 </div>
             </div>
-            
+
             <h3>📋 פרטים נוספים</h3>
             <div class="form-grid-3">
                 <div class="form-group">
@@ -74,6 +77,7 @@
                         <option>200,000+ ק"מ</option>
                     </select>
                 </div>
+
                 <div class="form-group">
                     <label for="fuel_type">סוג דלק:</label>
                     <select id="fuel_type" name="fuel_type">
@@ -84,6 +88,7 @@
                         <option>אחר</option>
                     </select>
                 </div>
+
                 <div class="form-group">
                     <label for="transmission">תיבת הילוכים:</label>
                     <select id="transmission" name="transmission">
@@ -92,7 +97,7 @@
                     </select>
                 </div>
             </div>
-            
+
             <div class="form-group" style="margin-top: 1rem;">
                 <label for="sub_model">תת-דגם (אופציונלי):</label>
                 <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: 'Lounge', '1.6 ליטר', 'GLI'">
@@ -100,19 +105,17 @@
 
             <button type="submit" id="submit-button">
                 <span class="button-text">🚀 בצע ניתוח אמינות</span>
-                <div class="spinner hidden"></div>
+                <div class="spinner hidden" aria-hidden="true"></div>
             </button>
         </form>
 
         <div id="results-container" class="hidden">
-            <div id="results-content">
-                </div>
+            <div id="results-content"></div>
         </div>
-        
     </main>
 
     <script>
-        // בודק אם המשתמש מחובר. אם לא, הסקריפט לא ינסה להפעיל את הטופס.
+        // מצהיר בקצה ה-HTML כדי שלא יפריע לעימוד
         const userIsAuthenticated = {{ user.is_authenticated | tojson }};
         const carModelsData = {{ car_models_data | tojson }};
     </script>
