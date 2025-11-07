@@ -97,12 +97,42 @@ def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
 # --- פונקציות מודל ---
 def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_range):
     extra = f" תת-דגם/תצורה: {sub_model}" if sub_model else ""
-    # ... (קיצרתי את הפרומפט שלך, אבל הקוד המלא שלך צריך להיות כאן) ...
     return f"""
-    אתה מומחה לאמינות רכבים...
-    ... (הפרומפט המלא שלך כאן) ...
-    רכב: {make} {model}{extra} {int(year)}
-    """.strip()
+אתה מומחה לאמינות רכבים בישראל עם גישה לחיפוש אינטרנטי.
+הניתוח חייב להתייחס ספציפית לטווח הקילומטראז' הנתון.
+החזר JSON בלבד:
+
+{{
+  "search_performed": true,
+  "score_breakdown": {{
+    "engine_transmission_score": "מספר (1-10)",
+    "electrical_score": "מספר (1-10)",
+    "suspension_brakes_score": "מספר (1-10)",
+    "maintenance_cost_score": "מספר (1-10)",
+    "satisfaction_score": "מספר (1-10)",
+    "recalls_score": "מספר (1-10)"
+  }},
+  "base_score_calculated": "מספר (0-100)",
+  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
+  "avg_repair_cost_ILS": "מספר ממוצע",
+  "issues_with_costs": [
+    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
+  ],
+  "reliability_summary": "סיכום בעברית",
+  "sources": ["רשימת אתרים"],
+  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
+  "common_competitors_brief": [
+      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
+      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
+  ]
+}}
+
+רכב: {make} {model}{extra} {int(year)}
+טווח קילומטראז': {mileage_range}
+סוג דלק: {fuel_type}
+תיבת הילוכים: {transmission}
+כתוב בעברית בלבד.
+""".strip()
 
 def call_model_with_retry(prompt: str) -> dict:
     last_err = None
@@ -380,4 +410,7 @@ app = create_app()
 if __name__ == '__main__':
     # הרצה מקומית בלבד
     port = int(os.environ.get('PORT', 5001))
+    # חשוב: אפשר הרצת SSL מקומית כדי ש-OAuth של גוגל יעבוד
+    # תצטרך ליצור קבצי מפתח ואבטחה (key.pem, cert.pem) או להריץ בלי זה
+    # app.run(debug=True, port=port, ssl_context='adhoc')
     app.run(debug=True, port=port)
