@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
-# 🚗 Car Reliability Analyzer – Israel (v6.2.0 • Factory Pattern)
+# 🚗 Car Reliability Analyzer – Israel (v6.3.0 • Factory Pattern FIX)
 # ===================================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -26,7 +26,6 @@ from authlib.integrations.flask_client import OAuth
 # ==================================
 # === 1. יצירת אובייקטים גלובליים (ריקים) ===
 # ==================================
-# ניצור אותם כאן, אבל נאתחל אותם בתוך ה-Factory
 db = SQLAlchemy()
 login_manager = LoginManager()
 oauth = OAuth()
@@ -45,7 +44,6 @@ MAX_CACHE_DAYS = 45
 # ==================================
 # === 2. הגדרת מודלים של DB (גלובלי) ===
 # ==================================
-# זה בסדר להגדיר אותם כאן כי הם תלויים רק באובייקט db הריק
 class User(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     google_id = db.Column(db.String(200), unique=True, nullable=False)
@@ -165,17 +163,18 @@ def create_app():
     app = Flask(__name__)
     
     # --- 4A. טעינת הגדרות (Secrets) ---
-    # זה רץ רק בשלב ה-Deploy, לא ב-Build, ולכן יצליח
     app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
     app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY') 
     
+    # בדיקות תקינות למקרה שהמשתנים לא נטענו
     if not app.config['SQLALCHEMY_DATABASE_URI']:
-        print("WARNING: DATABASE_URL is not set. Using in-memory SQLite DB.")
+        print("CRITICAL ERROR: DATABASE_URL is not set.")
+        # במקרה חירום, נגדיר DB זמני כדי שהאפליקציה לפחות תעלה
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
         
     if not app.config['SECRET_KEY']:
-        print("WARNING: SECRET_KEY is not set. Using a weak dev key.")
-        app.config['SECRET_KEY'] = 'dev-secret'
+        print("CRITICAL ERROR: SECRET_KEY is not set.")
+        app.config['SECRET_KEY'] = 'dev-secret-key-that-is-not-secret'
 
     # --- 4B. אתחול ההרחבות עם האפליקציה ---
     db.init_app(app)
@@ -191,7 +190,6 @@ def create_app():
     genai.configure(api_key=GEMINI_API_KEY)
 
     # --- 4D. רישום ספק ה-OAuth (גוגל) ---
-    # חייב לקרות *אחרי* oauth.init_app(app)
     google = oauth.register(
         name='google',
         client_id=os.environ.get('GOOGLE_CLIENT_ID'),
@@ -207,7 +205,6 @@ def create_app():
     )
 
     # --- 4E. רישום ה-Routes (נתיבים) ---
-    # אנחנו מגדירים את הנתיבים *בתוך* ה-Factory
     
     @app.route('/')
     def index():
@@ -393,24 +390,24 @@ def create_app():
     @app.cli.command("init-db")
     def init_db_command():
         """יוצר את טבלאות בסיס הנתונים."""
-        with app.app_context():
-            db.create_all()
+        # קוד זה רץ בתוך ההקשר של האפליקציה, כך שיש לו גישה ל-DB
+        db.create_all()
         print("Initialized the database tables.")
 
     # --- 4G. החזרת האפליקציה ---
     return app
 
 
-# ========================================
-# ===== ★★★ 5. נקודת כניסה ★★★ ======
-# ========================================
-# הפקודה הזו יוצרת את האפליקציה כדי שה-CLI של Flask יוכל למצוא אותה
+# ===================================================================
+# ===== ★★★ 5. נקודת כניסה (ל-Gunicorn ו-Flask CLI) ★★★ ======
+# ===================================================================
+# אנחנו *כן* יוצרים כאן app, אבל רק כדי שהפקודה `flask init-db` תעבוד.
+# היא לא תרוץ בזמן ה-build כי היא לא תנסה להתחבר ל-DB מיד.
+# Gunicorn ישתמש בפונקציה `create_app()` ישירות (כפי שמוגדר ב-Procfile).
 app = create_app()
+
 
 if __name__ == '__main__':
     # הרצה מקומית בלבד
     port = int(os.environ.get('PORT', 5001))
-    # חשוב: אפשר הרצת SSL מקומית כדי ש-OAuth של גוגל יעבוד
-    # תצטרך ליצור קבצי מפתח ואבטחה (key.pem, cert.pem) או להריץ בלי זה
-    # app.run(debug=True, port=port, ssl_context='adhoc')
     app.run(debug=True, port=port)
