@@ -1,5 +1,5 @@
 document.addEventListener("DOMContentLoaded", () => {
-    // איתור כל האלמנטים הרלוונטיים בדף
+    // איתור אלמנטים גלובליים
     const makeSelect = document.getElementById("make");
     const modelSelect = document.getElementById("model");
     const yearSelect = document.getElementById("year");
@@ -8,17 +8,17 @@ document.addEventListener("DOMContentLoaded", () => {
     const resultsContent = document.getElementById("results-content");
     const submitButton = document.getElementById("submit-button");
 
-    // פונקציה לעדכון רשימת הדגמים כשבוחרים יצרן
+    // ----- 1. לוגיקת הטופס (בחירת יצרן/דגם/שנה) -----
+
     makeSelect.addEventListener("change", () => {
         const selectedMake = makeSelect.value;
-        modelSelect.innerHTML = '<option value="">בחר דגם...</option>'; // איפוס
-        yearSelect.innerHTML = '<option value="">בחר דגם תחילה...</option>'; // איפוס
+        modelSelect.innerHTML = '<option value="">בחר דגם...</option>';
+        yearSelect.innerHTML = '<option value="">בחר דגם תחילה...</option>';
         modelSelect.disabled = true;
         yearSelect.disabled = true;
 
         if (selectedMake && carModelsData[selectedMake]) {
             modelSelect.disabled = false;
-            // לולאה על כל הדגמים של היצרן הנבחר
             carModelsData[selectedMake].forEach(modelLabel => {
                 const option = document.createElement("option");
                 option.value = modelLabel;
@@ -28,14 +28,12 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // פונקציה לעדכון טווח השנים כשבוחרים דגם
     modelSelect.addEventListener("change", () => {
         const selectedModelLabel = modelSelect.value;
-        yearSelect.innerHTML = '<option value="">בחר שנה...</option>'; // איפוס
+        yearSelect.innerHTML = '<option value="">בחר שנה...</option>';
         yearSelect.disabled = true;
 
         if (selectedModelLabel) {
-            // חילוץ השנים מתוך הטקסט (למשל "Golf (2004-2025)")
             const match = selectedModelLabel.match(/\((\d{4})\s*-\s*(\d{4})\)/);
             if (match) {
                 yearSelect.disabled = false;
@@ -43,12 +41,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 const endYear = parseInt(match[2]);
                 const currentYear = new Date().getFullYear();
                 
-                // יצירת רשימת שנים (מהחדש לישן)
                 for (let year = endYear; year >= startYear; year--) {
                     const option = document.createElement("option");
                     option.value = year;
                     option.textContent = year;
-                    // בחירת ברירת מחדל (למשל, 5 שנים אחורה)
                     if (year === Math.min(endYear, Math.max(startYear, currentYear - 5))) {
                         option.selected = true;
                     }
@@ -58,23 +54,22 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // --- הטיפול המרכזי: שליחת הטופס ---
+    // ----- 2. לוגיקת שליחת הטופס (Submit) -----
+
     carForm.addEventListener("submit", async (e) => {
-        e.preventDefault(); // מניעת רענון הדף
+        e.preventDefault();
         
-        // --- ★ שינוי כאן: הפעלת הספינר ---
+        // הפעלת הספינר
         submitButton.disabled = true;
         submitButton.querySelector('.button-text').classList.add('hidden');
         submitButton.querySelector('.spinner').classList.remove('hidden');
         resultsContainer.classList.add("hidden");
-        resultsContent.innerHTML = '<progress style="width: 100%"></progress>'; // אנימציית טעינה ראשונית
+        resultsContent.innerHTML = '<progress style="width: 100%"></progress>';
 
-        // איסוף כל הנתונים מהטופס
         const formData = new FormData(carForm);
         const data = {};
         formData.forEach((value, key) => {
             if (key === 'model') {
-                // ניקוי הדגם מהשנים (מ-"Golf (2004-2025)" ל-"Golf")
                 data[key] = value.split(' (')[0].trim();
             } else {
                 data[key] = value;
@@ -82,80 +77,82 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         try {
-            // --- שליחת הבקשה לשרת (ל-API ב-app.py) ---
             const response = await fetch("/analyze", {
                 method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify(data), // המרת האובייקט ל-JSON
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(data),
             });
 
-            // קבלת התשובה מהשרת
             const resultData = await response.json();
 
-            // טיפול בשגיאות שחזרו מהשרת
             if (!response.ok) {
                 throw new Error(resultData.error || `HTTP error! status: ${response.status}`);
             }
-
-            // הצלחה! הצגת התוצאות
+            
+            // הצלחה! בניית ה-HTML של התוצאות
             renderResults(resultData);
-            resultsContainer.classList.remove("hidden"); // הצגת התוצאות
+            resultsContainer.classList.remove("hidden");
 
         } catch (error) {
-            // טיפול בשגיאות תקשורת או שגיאות קריטיות
             console.error("Error during analysis:", error);
             resultsContent.innerHTML = `<mark class="error">❌ נכשלתי ביצירת הניתוח: ${error.message}</mark>`;
-            resultsContainer.classList.remove("hidden"); // הצגת השגיאה
+            resultsContainer.classList.remove("hidden");
         } finally {
-            // --- ★ שינוי כאן: החזרת הכפתור למצב רגיל ---
+            // החזרת הכפתור למצב רגיל
             submitButton.disabled = false;
             submitButton.querySelector('.button-text').classList.remove('hidden');
             submitButton.querySelector('.spinner').classList.add('hidden');
         }
     });
 
-    // פונקציה להצגת התוצאות ב-HTML
+    // ----- 3. פונקציית בניית התוצאות (Render) -----
+
     function renderResults(data) {
         let html = '';
 
-        // ציון
-        html += `<h3>ציון אמינות משוקלל: ${data.base_score_calculated || 0} / 100</h3>`;
+        // --- בלוק עליון: ציון וסיכום ---
+        html += `<h3>ציון אמינות משוקלל</h3>`;
+        html += `<div class="score-value">${data.base_score_calculated || 0} / 100</div>`;
 
-        // אזהרות
         if (data.km_warn) {
             html += `<mark>⚠️ טווח הק״מ השמור שונה מהקלט. ייתכן שהציון היה משתנה לפי ק״מ.</mark>`;
         }
         if (data.mileage_note) {
-            html += `<p><strong>הערת קילומטראז':</strong> ${data.mileage_note}</p>`;
+            html += `<p style="text-align:center;"><strong>הערת קילומטראז':</strong> ${data.mileage_note}</p>`;
         }
-
-        // סיכום
         if (data.reliability_summary) {
-            html += `<p>${data.reliability_summary}</p>`;
+            html += `<p class="summary-text">${data.reliability_summary}</p>`;
         }
 
-        // טאבים (נבנה בצורה פשוטה)
-        html += `<hr style="border-color: var(--border-color); margin-top: 1.5rem; margin-bottom: 1.5rem;">`;
-        
-        // פירוט ציון
-        html += `<h4>📊 פירוט (1–10)</h4><ul>`;
-        const breakdown = data.score_breakdown || {};
-        html += `<li>מנוע וגיר: <strong>${breakdown.engine_transmission_score || 'N/A'}</strong>/10</li>`;
-        html += `<li>חשמל/אלקטרוניקה: <strong>${breakdown.electrical_score || 'N/A'}</strong>/10</li>`;
-        html += `<li>מתלים/בלמים: <strong>${breakdown.suspension_brakes_score || 'N/A'}</strong>/10</li>`;
-        html += `<li>עלות אחזקה: <strong>${breakdown.maintenance_cost_score || 'N/A'}</strong>/10</li>`;
-        html += `<li>שביעות רצון: <strong>${breakdown.satisfaction_score || 'N/A'}</strong>/10</li>`;
-        html += `<li>ריקולים: <strong>${breakdown.recalls_score || 'N/A'}</strong>/10</li>`;
-        html += `</ul>`;
+        // --- בניית הטאבים ---
+        html += `
+            <div class="result-tabs">
+                <div class="tab active" data-tab="tab-details">📊 פירוט הציון</div>
+                <div class="tab" data-tab="tab-issues">🔧 תקלות ועלויות</div>
+                <div class="tab" data-tab="tab-checks">🔬 בדיקות מומלצות</div>
+                <div class="tab" data-tab="tab-competitors">🚗 מתחרים</div>
+            </div>
+        `;
 
-        // תקלות ועלויות
-        html += `<h4>🔧 תקלות ועלויות</h4>`;
+        // --- תוכן הטאבים ---
+
+        // טאב 1: פירוט הציון
+        const breakdown = data.score_breakdown || {};
+        html += `<div id="tab-details" class="tab-content active"><ul class="score-breakdown-list">`;
+        html += `<li><span>מנוע וגיר</span> <span>${breakdown.engine_transmission_score || 'N/A'}/10</span></li>`;
+        html += `<li><span>חשמל/אלקטרוניקה</span> <span>${breakdown.electrical_score || 'N/A'}/10</span></li>`;
+        html += `<li><span>מתלים/בלמים</span> <span>${breakdown.suspension_brakes_score || 'N/A'}/10</span></li>`;
+        html += `<li><span>עלות אחזקה</span> <span>${breakdown.maintenance_cost_score || 'N/A'}/10</span></li>`;
+        html += `<li><span>שביעות רצון</span> <span>${breakdown.satisfaction_score || 'N/A'}/10</span></li>`;
+        html += `<li><span>ריקולים</span> <span>${breakdown.recalls_score || 'N/A'}/10</span></li>`;
+        html += `</ul></div>`;
+
+        // טאב 2: תקלות ועלויות
+        html += `<div id="tab-issues" class="tab-content">`;
         if (data.common_issues && data.common_issues.length > 0) {
             html += `<strong>תקלות נפוצות:</strong><ul>`;
             data.common_issues.forEach(issue => html += `<li>${issue}</li>`);
-            html += `</ul>`;
+            html += `</ul><br>`;
         }
         if (data.issues_with_costs && data.issues_with_costs.length > 0) {
             html += `<strong>עלויות תיקון (אינדיקטיבי):</strong><ul>`;
@@ -164,9 +161,13 @@ document.addEventListener("DOMContentLoaded", () => {
             });
             html += `</ul>`;
         }
-        
-        // בדיקות
-        html += `<h4>🔬 בדיקות מומלצות</h4>`;
+        if (!data.common_issues && !data.issues_with_costs) {
+            html += `<p>אין מידע ספציפי על תקלות או עלויות.</p>`;
+        }
+        html += `</div>`;
+
+        // טאב 3: בדיקות מומלצות
+        html += `<div id="tab-checks" class="tab-content">`;
         if (data.recommended_checks && data.recommended_checks.length > 0) {
             html += `<ul>`;
             data.recommended_checks.forEach(check => html += `<li>${check}</li>`);
@@ -174,21 +175,44 @@ document.addEventListener("DOMContentLoaded", () => {
         } else {
             html += `<p>אין המלצות בדיקה ספציפיות.</p>`;
         }
+        html += `</div>`;
 
-        // מתחרים
-        html += `<h4>🚗 מתחרים נפוצים</h4>`;
+        // טאב 4: מתחרים
+        html += `<div id="tab-competitors" class="tab-content">`;
         if (data.common_competitors_brief && data.common_competitors_brief.length > 0) {
             data.common_competitors_brief.forEach(comp => {
-                html += `<p><strong>${comp.model || ''}:</strong> ${comp.brief_summary || ''}</p>`;
+                html += `<div class="competitor-item"><strong>${comp.model || ''}:</strong> ${comp.brief_summary || ''}</div>`;
             });
         } else {
             html += `<p>אין נתוני מתחרים.</p>`;
         }
+        html += `</div>`;
 
         // מקור
         html += `<small>${data.source_tag || ''}</small>`;
 
         // הזרקת כל ה-HTML שנוצר לתוך הדף
         resultsContent.innerHTML = html;
+
+        // הפעלת הלוגיקה של הטאבים
+        activateTabs();
+    }
+    
+    // פונקציה שמפעילה את הטאבים
+    function activateTabs() {
+        const tabs = resultsContent.querySelectorAll('.tab');
+        const tabContents = resultsContent.querySelectorAll('.tab-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // הסרת 'active' מכולם
+                tabs.forEach(t => t.classList.remove('active'));
+                tabContents.forEach(c => c.classList.remove('active'));
+
+                // הוספת 'active' לטאב הלחוץ ולתוכן שלו
+                tab.classList.add('active');
+                resultsContent.querySelector(`#${tab.dataset.tab}`).classList.add('active');
+            });
+        });
     }
 });
