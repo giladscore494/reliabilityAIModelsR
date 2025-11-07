@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===========================================================
-# 🚗 Car Reliability Analyzer – Israel (v4.0.0 • Flask API)
+# 🚗 Car Reliability Analyzer – Israel (v4.1.0 • Flask API + Debug)
 # ===========================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -28,7 +28,6 @@ app = Flask(__name__)
 # =========================
 # ======== Secrets ========
 # =========================
-# !! חשוב: במקום st.secrets, אנחנו קוראים מ-Environment Variables
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
 GOOGLE_SHEET_ID = os.environ.get("GOOGLE_SHEET_ID", "")
 GOOGLE_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_SERVICE_ACCOUNT_JSON", "")
@@ -40,9 +39,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 # =========================
 # === Models dictionary ===
 # =========================
-# (העתקתי את המילון שלך לכאן לנוחות, כי אין ייבוא)
 try:
-    # אם תרצה, תוכל ליצור קובץ car_models_dict.py ולייבא אותו
     from car_models_dict import israeli_car_market_full_compilation
 except Exception:
     israeli_car_market_full_compilation = {
@@ -336,21 +333,19 @@ def index():
         # אנו שולחים לפרונטאנד את רשימת הרכבים כדי לבנות את התפריטים
         return render_template('index.html', car_models_data=israeli_car_market_full_compilation)
     except Exception as e:
-        print(f"Error rendering index: {e}")
-        return "<h1>Error loading page</h1><p>Could not load template. Check logs.</p>", 500
-
+        print(f"!!! קריסה קריטית: לא ניתן לטעון את index.html: {e}")
+        traceback.print_exc()
+        return "<h1>שגיאה בטעינת האפליקציה (500)</h1><p>בדוק את הלוגים של השרת.</p>", 500
 
 @app.route('/analyze', methods=['POST'])
 def analyze_car():
     """
-    זהו ה-API Endpoint.
-    הפרונטאנד שולח לכאן JSON עם נתוני הטופס,
-    אנחנו מחזירים JSON עם התוצאות.
+    זהו ה-API Endpoint המשודרג עם דיבאג מתקדם.
     """
     try:
-        # 1. קבלת נתונים מהפרונטאנד
+        # --- שלב 0: קבלת נתונים ---
         data = request.json
-        print(f"Received data: {data}")
+        print(f"DEBUG (0/6): Received data: {data}")
         final_make = normalize_text(data.get('make'))
         final_model = normalize_text(data.get('model'))
         final_sub_model = normalize_text(data.get('sub_model'))
@@ -359,57 +354,76 @@ def analyze_car():
         final_fuel = str(data.get('fuel_type'))
         final_trans = str(data.get('transmission'))
 
-        # 2. Validation
         if not (final_make and final_model and final_year):
-            return jsonify({"error": "נא למלא יצרן, דגם ושנה."}), 400
-        
-        # 3. התחברות ל-Sheets
-        try:
-            ws = connect_sheet()
-        except Exception as e:
-            print(f"Sheet connection error: {e}")
-            return jsonify({"error": str(e)}), 500
+            return jsonify({"error": "שגיאת קלט (שלב 0): נא למלא יצרן, דגם ושנה."}), 400
 
-        # 4. Cache Lookup
-        print("Checking cache...")
+    except Exception as e:
+        print(f"!!! שגיאה (שלב 0): הקלט שהתקבל אינו JSON תקין. {e}")
+        return jsonify({"error": f"שגיאת קלט (שלב 0): {str(e)}"}), 400
+
+    # --- שלב 1: חיבור ל-Sheets ---
+    try:
+        print("DEBUG (1/6): Connecting to Google Sheets...")
+        ws = connect_sheet()
+        print("DEBUG (1/6): Connection successful.")
+    except Exception as e:
+        print(f"!!! שגיאה (שלב 1): נכשל בחיבור ל-Google Sheets.")
+        traceback.print_exc()
+        return jsonify({"error": f"שגיאת חיבור (שלב 1): נכשל ביצירת החיבור ל-Google Sheets. ודא שה-API של Sheets ו-Drive מופעלים וההרשאות תקינות. שגיאה: {str(e)}"}), 500
+
+    # --- שלב 2: קריאת Cache ---
+    try:
+        print("DEBUG (2/6): Fetching cache from sheet...")
         cached_result, df, used_fallback, mileage_matched = get_cached_from_sheet(
             ws, final_make, final_model, final_sub_model, final_year, final_mileage
         )
+        print("DEBUG (2/6): Cache fetch complete.")
+    except Exception as e:
+        print(f"!!! שגיאה (שלב 2): נכשל בקריאת הנתונים מה-Sheet.")
+        traceback.print_exc()
+        return jsonify({"error": f"שגיאת מטמון (שלב 2): נכשל בקריאת הנתונים מה-Sheet. ודא שהשיתוף (Share) של המייל בוצע כראוי. שגיאה: {str(e)}"}), 500
 
-        # 5. Quota Check
-        is_quota_ok, daily_count = within_daily_global_limit(df)
+    # --- שלב 3: בדיקת Quota ו-Cache Hit ---
+    is_quota_ok, daily_count = within_daily_global_limit(df)
 
-        # 6. Handle Cache Hit
-        if cached_result:
-            print("Cache hit found.")
-            cached_result, note = apply_mileage_logic(cached_result, final_mileage)
-            # הוספת נתונים כדי שהפרונטאנד ידע איך להציג
-            source_tag = f"מקור: מטמון (נשמר ב-{cached_result.get('last_date', 'N/A')})"
-            if used_fallback: source_tag += " - ללא תת-דגם"
-            cached_result['source_tag'] = source_tag
-            cached_result['mileage_note'] = note
-            cached_result['km_warn'] = not mileage_matched
-            return jsonify(cached_result)
+    if cached_result:
+        print("DEBUG (3/6): Cache hit. Skipping model call.")
+        cached_result, note = apply_mileage_logic(cached_result, final_mileage)
+        source_tag = f"מקור: מטמון (נשמר ב-{cached_result.get('last_date', 'N/A')})"
+        if used_fallback: source_tag += " - ללא תת-דגם"
+        cached_result['source_tag'] = source_tag
+        cached_result['mileage_note'] = note
+        cached_result['km_warn'] = not mileage_matched
+        return jsonify(cached_result)
 
-        # 7. Handle Quota Miss
-        print("Cache miss. Checking quota...")
-        if not is_quota_ok:
-            print("Quota exceeded.")
-            return jsonify({"error": f"⛔️ המגבלה היומית הושגה ({daily_count}/{GLOBAL_DAILY_LIMIT}). המטמון נבדק, אך לא נמצאה התאמה."}), 429
-        
-        print(f"Quota OK. Proceeding to API call ({daily_count + 1}/{GLOBAL_DAILY_LIMIT})")
-        # 8. Call Model
+    print(f"DEBUG (3/6): Cache miss. Checking quota...")
+    if not is_quota_ok:
+        print(f"!!! שגיאה (שלב 3): המגבלה היומית הושגה.")
+        return jsonify({"error": f"מגבלת שימוש (שלב 3): המגבלה היומית הושגה ({daily_count}/{GLOBAL_DAILY_LIMIT})."}), 429
+    
+    print(f"DEBUG (3/6): Quota OK. Proceeding ({daily_count + 1}/{GLOBAL_DAILY_LIMIT})")
+
+    # --- שלב 4: פנייה ל-Gemini ---
+    try:
+        print("DEBUG (4/6): Calling Gemini API...")
         prompt = build_prompt(
             final_make, final_model, final_sub_model, final_year,
             final_fuel, final_trans, final_mileage
         )
         model_output = call_model_with_retry(prompt)
-        
-        # 9. Apply Mileage Logic
-        model_output, note = apply_mileage_logic(model_output, final_mileage)
+        print("DEBUG (4/6): Gemini call successful.")
+    except Exception as e:
+        print(f"!!! שגיאה (שלב 4): הקריאה ל-Gemini נכשלה.")
+        traceback.print_exc()
+        return jsonify({"error": f"שגיאת AI (שלב 4): הקריאה למודל ה-AI נכשלה. ודא שה-GEMINI_API_KEY נכון. שגיאה: {str(e)}"}), 500
 
-        # 10. Save to Sheet
-        print("Saving new result to sheet...")
+    # --- שלב 5: החלת לוגיקת ק"מ ---
+    print("DEBUG (5/6): Applying mileage logic...")
+    model_output, note = apply_mileage_logic(model_output, final_mileage)
+
+    # --- שלב 6: שמירה ב-Sheet (לא קריטי) ---
+    try:
+        print("DEBUG (6/6): Saving new result to sheet...")
         issues_list = model_output.get("common_issues", []) or []
         issues_str = "; ".join([str(i) for i in issues_list if str(i).strip()])
         def safe_json_dump(data):
@@ -432,19 +446,20 @@ def analyze_car():
             "common_competitors_brief": safe_json_dump(model_output.get("common_competitors_brief", []))
         }
         append_row_to_sheet(ws, save_row)
-        print("Save complete.")
-
-        # 11. Return NEW result
-        model_output['source_tag'] = f"מקור: ניתוח AI חדש (שימוש {daily_count + 1}/{GLOBAL_DAILY_LIMIT})"
-        model_output['mileage_note'] = note
-        model_output['km_warn'] = False
-        return jsonify(model_output)
-
+        print("DEBUG (6/6): Save complete.")
     except Exception as e:
-        print(f"!!! SERVER ERROR: {e}")
+        # זו לא שגיאה קריטית, אנחנו לא רוצים שהמשתמש יקבל שגיאה אם רק השמירה נכשלה
+        print(f"!!! אזהרה (שלב 6): השמירה ל-Sheet נכשלה (המשתמש קיבל תשובה). שגיאה: {e}")
         traceback.print_exc()
-        return jsonify({"error": f"שגיאת שרת פנימית: {str(e)}"}), 500
+
+    # --- סיום: החזרת תשובה ---
+    model_output['source_tag'] = f"מקור: ניתוח AI חדש (שימוש {daily_count + 1}/{GLOBAL_DAILY_LIMIT})"
+    model_output['mileage_note'] = note
+    model_output['km_warn'] = False
+    return jsonify(model_output)
+
 
 if __name__ == '__main__':
     # פקודה זו מיועדת לפיתוח מקומי בלבד. Railway ישתמש ב-Gunicorn.
-    app.run(debug=True, port=os.environ.get('PORT', 5001))
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=True, port=port)
