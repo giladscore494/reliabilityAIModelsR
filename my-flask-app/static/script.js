@@ -62,12 +62,12 @@ document.addEventListener("DOMContentLoaded", () => {
     carForm.addEventListener("submit", async (e) => {
         e.preventDefault(); // מניעת רענון הדף
         
-        // עדכוני UI: כפתור נלחץ, הצגת טעינה
+        // --- ★ שינוי כאן: הפעלת הספינר ---
         submitButton.disabled = true;
-        submitButton.textContent = "מנתח... ⌛";
+        submitButton.querySelector('.button-text').classList.add('hidden');
+        submitButton.querySelector('.spinner').classList.remove('hidden');
         resultsContainer.classList.add("hidden");
-        resultsContent.innerHTML = '<progress></progress>'; // אנימציית טעינה
-        resultsContainer.classList.remove("hidden");
+        resultsContent.innerHTML = '<progress style="width: 100%"></progress>'; // אנימציית טעינה ראשונית
 
         // איסוף כל הנתונים מהטופס
         const formData = new FormData(carForm);
@@ -101,15 +101,18 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // הצלחה! הצגת התוצאות
             renderResults(resultData);
+            resultsContainer.classList.remove("hidden"); // הצגת התוצאות
 
         } catch (error) {
             // טיפול בשגיאות תקשורת או שגיאות קריטיות
             console.error("Error during analysis:", error);
             resultsContent.innerHTML = `<mark class="error">❌ נכשלתי ביצירת הניתוח: ${error.message}</mark>`;
+            resultsContainer.classList.remove("hidden"); // הצגת השגיאה
         } finally {
-            // החזרת הכפתור למצב רגיל
+            // --- ★ שינוי כאן: החזרת הכפתור למצב רגיל ---
             submitButton.disabled = false;
-            submitButton.textContent = "🚀 בצע ניתוח אמינות";
+            submitButton.querySelector('.button-text').classList.remove('hidden');
+            submitButton.querySelector('.spinner').classList.add('hidden');
         }
     });
 
@@ -133,17 +136,18 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `<p>${data.reliability_summary}</p>`;
         }
 
-        html += `<hr>`;
+        // טאבים (נבנה בצורה פשוטה)
+        html += `<hr style="border-color: var(--border-color); margin-top: 1.5rem; margin-bottom: 1.5rem;">`;
         
         // פירוט ציון
         html += `<h4>📊 פירוט (1–10)</h4><ul>`;
         const breakdown = data.score_breakdown || {};
-        html += `<li>מנוע וגיר: ${breakdown.engine_transmission_score || 'N/A'}/10</li>`;
-        html += `<li>חשמל/אלקטרוניקה: ${breakdown.electrical_score || 'N/A'}/10</li>`;
-        html += `<li>מתלים/בלמים: ${breakdown.suspension_brakes_score || 'N/A'}/10</li>`;
-        html += `<li>עלות אחזקה: ${breakdown.maintenance_cost_score || 'N/A'}/10</li>`;
-        html += `<li>שביעות רצון: ${breakdown.satisfaction_score || 'N/A'}/10</li>`;
-        html += `<li>ריקולים: ${breakdown.recalls_score || 'N/A'}/10</li>`;
+        html += `<li>מנוע וגיר: <strong>${breakdown.engine_transmission_score || 'N/A'}</strong>/10</li>`;
+        html += `<li>חשמל/אלקטרוניקה: <strong>${breakdown.electrical_score || 'N/A'}</strong>/10</li>`;
+        html += `<li>מתלים/בלמים: <strong>${breakdown.suspension_brakes_score || 'N/A'}</strong>/10</li>`;
+        html += `<li>עלות אחזקה: <strong>${breakdown.maintenance_cost_score || 'N/A'}</strong>/10</li>`;
+        html += `<li>שביעות רצון: <strong>${breakdown.satisfaction_score || 'N/A'}</strong>/10</li>`;
+        html += `<li>ריקולים: <strong>${breakdown.recalls_score || 'N/A'}</strong>/10</li>`;
         html += `</ul>`;
 
         // תקלות ועלויות
@@ -182,7 +186,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         // מקור
-        html += `<hr><small>${data.source_tag || ''}</small>`;
+        html += `<small>${data.source_tag || ''}</small>`;
 
         // הזרקת כל ה-HTML שנוצר לתוך הדף
         resultsContent.innerHTML = html;
