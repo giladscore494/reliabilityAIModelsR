@@ -102,6 +102,19 @@
                 <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: 'Lounge', '1.6 ליטר', 'GLI'">
             </div>
 
+            <!-- ✅ אישור גיל והסכמה לתנאי שימוש -->
+            <div class="form-group" style="margin-top: 1.5rem;">
+                <label>
+                    <input type="checkbox" id="legal-confirm" name="legal-confirm" required>
+                    אני מצהיר/ה כי אני בן/בת 18 ומעלה, קראתי והסכמתי ל-
+                    <a href="{{ url_for('terms') }}" target="_blank">תקנון השימוש</a> ול-
+                    <a href="{{ url_for('privacy') }}" target="_blank">מדיניות הפרטיות</a>.
+                </label>
+                <p id="legal-error" style="color: #b91c1c; font-size: 0.85rem; display: none; margin-top: 0.5rem;">
+                    ⚠️ חובה לאשר את הסעיף כדי להמשיך.
+                </p>
+            </div>
+
             <button type="submit" id="submit-button">
                 <span class="button-text">🚀 בצע ניתוח אמינות</span>
                 <div class="spinner hidden" aria-hidden="true"></div>
@@ -114,14 +127,13 @@
     </main>
 
     <footer style="text-align: center; padding: 20px; margin-top: 50px; border-top: 1px solid #eee; font-size: 0.9em;">
-        <p>
-            &copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.
-        </p>
+        <p>&copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.</p>
         <p style="margin-top: 10px;">
             <a href="{{ url_for('privacy') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">מדיניות פרטיות</a> | 
             <a href="{{ url_for('terms') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">תקנון שימוש</a>
         </p>
     </footer>
+
     <script>
         const userIsAuthenticated = {{ user.is_authenticated | tojson }};
         const carModelsData = {{ car_models_data | tojson }};
