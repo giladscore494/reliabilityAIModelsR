@@ -32,7 +32,6 @@
             <a href="/login" class="user-button login" style="font-size: 1.05rem; padding: 0.7rem 1.2rem;">התחבר עם גוגל</a>
         </div>
 
-        <!-- משאירים את הטופס ב-DOM אבל מוסתרים כדי שלא יכסה/יטריד בעימוד -->
         <form id="car-form" class="hidden" aria-hidden="true">
         {% else %}
         <form id="car-form">
@@ -114,6 +113,15 @@
         </div>
     </main>
 
+    <footer style="text-align: center; padding: 20px; margin-top: 50px; border-top: 1px solid #eee; font-size: 0.9em;">
+        <p>
+            &copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.
+        </p>
+        <p style="margin-top: 10px;">
+            <a href="{{ url_for('privacy') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">מדיניות פרטיות</a> | 
+            <a href="{{ url_for('terms') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">תקנון שימוש</a>
+        </p>
+    </footer>
     <script>
         // מצהיר בקצה ה-HTML כדי שלא יפריע לעימוד
         const userIsAuthenticated = {{ user.is_authenticated | tojson }};
