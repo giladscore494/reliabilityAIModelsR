@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
-# 🚗 Car Reliability Analyzer – Israel (v6.0.0 • User Auth + DB)
+# 🚗 Car Reliability Analyzer – Israel (v6.1.0 • User Auth + DB Fix)
 # ===================================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -77,9 +77,8 @@ class SearchHistory(db.Model):
     transmission = db.Column(db.String(100))
     result_json = db.Column(db.Text, nullable=False)
 
-# --- יצירת הטבלאות בבסיס הנתונים ---
-with app.app_context():
-    db.create_all()
+# --- ★★★ התיקון: מחקנו את 'db.create_all()' מכאן ★★★ ---
+# הפקודה הזו תרוץ עכשיו רק משלב ה-Pre-deploy ב-Railway
 
 # --- פונקציית טעינת משתמש ---
 @login_manager.user_loader
@@ -138,15 +137,45 @@ def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
 # ===== Model calling =====
 # =========================
 def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_range):
-    # ... (אותו קוד פרומפט כמו קודם) ...
     extra = f" תת-דגם/תצורה: {sub_model}" if sub_model else ""
     return f"""
-    ... (הפרומפט המלא שלך כאן) ...
-    רכב: {make} {model}{extra} {int(year)}
-    """.strip()
+אתה מומחה לאמינות רכבים בישראל עם גישה לחיפוש אינטרנטי.
+הניתוח חייב להתייחס ספציפית לטווח הקילומטראז' הנתון.
+החזר JSON בלבד:
+
+{{
+  "search_performed": true,
+  "score_breakdown": {{
+    "engine_transmission_score": "מספר (1-10)",
+    "electrical_score": "מספר (1-10)",
+    "suspension_brakes_score": "מספר (1-10)",
+    "maintenance_cost_score": "מספר (1-10)",
+    "satisfaction_score": "מספר (1-10)",
+    "recalls_score": "מספר (1-10)"
+  }},
+  "base_score_calculated": "מספר (0-100)",
+  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
+  "avg_repair_cost_ILS": "מספר ממוצע",
+  "issues_with_costs": [
+    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
+  ],
+  "reliability_summary": "סיכום בעברית",
+  "sources": ["רשימת אתרים"],
+  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
+  "common_competitors_brief": [
+      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
+      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
+  ]
+}}
+
+רכב: {make} {model}{extra} {int(year)}
+טווח קילומטראז': {mileage_range}
+סוג דלק: {fuel_type}
+תיבת הילוכים: {transmission}
+כתוב בעברית בלבד.
+""".strip()
 
 def call_model_with_retry(prompt: str) -> dict:
-    # ... (אותו קוד קריאה למודל כמו קודם) ...
     last_err = None
     for model_name in [PRIMARY_MODEL, FALLBACK_MODEL]:
         try: llm = genai.GenerativeModel(model_name)
@@ -333,8 +362,11 @@ def analyze_car():
         pass # לא עוצרים, פשוט נמשיך לקריאה ל-Gemini
 
     # --- שלב 4: פנייה ל-Gemini (כולל בדיקת מגבלה גלובלית) ---
+    global_searches_today = 0 # איתחול למקרה שהשלב הקודם נכשל
     try:
         # בדיקה אחרונה של המגבלה הגלובלית *לפני* שמוציאים כסף
+        today_start = datetime.combine(datetime.today().date(), time.min)
+        today_end = datetime.combine(datetime.today().date(), time.max)
         global_searches_today = SearchLog.query.filter(
             SearchLog.timestamp >= today_start,
             SearchLog.timestamp <= today_end
@@ -386,6 +418,15 @@ def analyze_car():
     model_output['mileage_note'] = note
     model_output['km_warn'] = False
     return jsonify(model_output)
+
+
+# --- ★★★ פקודת CLI חדשה ליצירת הטבלאות ★★★ ---
+@app.cli.command("init-db")
+def init_db_command():
+    """יוצר את טבלאות בסיס הנתונים."""
+    with app.app_context():
+        db.create_all()
+    print("Initialized the database tables.")
 
 
 if __name__ == '__main__':
