@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
-# 🚗 Car Reliability Analyzer – Israel (v6.4.0 • ProxyFix)
+# 🚗 Car Reliability Analyzer – Israel (v6.4.0 • Factory Pattern + Auth Fix)
 # ===================================================================
 
 import json, re, time, datetime, difflib, traceback, os
@@ -22,8 +22,7 @@ from flask_login import (
     login_required,
 )
 from authlib.integrations.flask_client import OAuth
-# --- ★★★ הוספנו את ה-Import החדש ★★★ ---
-from werkzeug.middleware.proxy_fix import ProxyFix
+from werkzeug.middleware.proxy_fix import ProxyFix # ★★★ הוספה לתיקון CSRF ★★★
 
 # ==================================
 # === 1. יצירת אובייקטים גלובליים (ריקים) ===
@@ -165,6 +164,7 @@ def create_app():
     app = Flask(__name__)
     
     # --- ★★★ התיקון: להגיד ל-Flask שהוא מאחורי פרוקסי ★★★ ---
+    # זה פותר את שגיאת MismatchingStateError
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
     
     # --- 4A. טעינת הגדרות (Secrets) ---
@@ -226,11 +226,18 @@ def create_app():
 
     @app.route('/auth')
     def auth():
+        """ גוגל מחזיר את המשתמש לכאן אחרי התחברות מוצלחת """
         try:
-            token = google.authorize_access_token()
-            userinfo = google.get('userinfo').json()
+            # זה מתקשר לגוגל כדי לקבל את ה-access token
+            token = google.authorize_access_token() 
+            
+            # ★★★ התיקון: אנחנו משתמשים ב-userinfo endpoint כדי לדלג על אימות ID Token ★★★
+            userinfo = google.get('userinfo').json() 
+
+            # בדוק אם המשתמש קיים ב-DB
             user = User.query.filter_by(google_id=userinfo['id']).first()
             if not user:
+                # אם לא, צור משתמש חדש
                 user = User(
                     google_id=userinfo['id'],
                     email=userinfo['email'],
@@ -238,12 +245,14 @@ def create_app():
                 )
                 db.session.add(user)
                 db.session.commit()
+            
+            # בצע כניסה למערכת
             login_user(user)
-            return redirect(url_for('index'))
+            return redirect(url_for('index')) # חזור לדף הבית
         except Exception as e:
             print(f"!!! שגיאת Auth: {e}")
             traceback.print_exc()
-            return redirect(url_for('index'))
+            return redirect(url_for('index')) # החזר לדף הבית גם אם נכשל
 
     @app.route('/logout')
     @login_required
@@ -403,7 +412,7 @@ def create_app():
 # ===================================================================
 # ===== ★★★ 5. נקודת כניסה (ל-Gunicorn ו-Flask CLI) ★★★ ======
 # ===================================================================
-# --- (מחקנו את 'app = create_app()' מכאן) ---
+# Gunicorn ו-Flask CLI קוראים ישירות ל-create_app().
 
 if __name__ == '__main__':
     # הרצה מקומית בלבד
