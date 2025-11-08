@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+
 <html lang="he" dir="rtl" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
@@ -74,6 +74,17 @@
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+
+        /* תיקון כיוון לתיבות בחירה באנגלית */
+        select.ltr-select {
+            direction: ltr;
+            text-align: left;
+        }
+        /* החזרת האייקון לצד ימין בתיבות LTR */
+        .ltr-select-wrapper .pointer-events-none {
+            left: auto;
+            right: 1rem;
+        }
     </style>
 
     <script>
@@ -179,36 +190,39 @@
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div class="group space-y-3">
                         <label for="make" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">יצרן <span class="text-secondary mr-1">*</span></label>
-                        <div class="relative">
-                            <select id="make" name="make" required class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all hover:border-slate-600 cursor-pointer">
-                                <option value="">בחר יצרן מהרשימה...</option>
+                        <div class="relative ltr-select-wrapper">
+                            <!-- הוספתי את המחלקה ltr-select כאן -->
+                            <select id="make" name="make" required class="ltr-select w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all hover:border-slate-600 cursor-pointer">
+                                <option value="">Select Make...</option> <!-- שיניתי לאנגלית כדי להתאים ל-LTR -->
                                 {% if car_models_data %}
                                     {% for make in car_models_data.keys()|sort %}
                                         <option value="{{ make }}">{{ make }}</option>
                                     {% endfor %}
                                 {% endif %}
                             </select>
-                            <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-primary transition-colors">
+                            <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-primary transition-colors">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
                             </div>
                         </div>
                     </div>
                     <div class="group space-y-3">
                         <label for="model" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">דגם <span class="text-secondary mr-1">*</span></label>
-                        <div class="relative">
-                            <select id="model" name="model" required disabled class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">-- קודם בחר יצרן --</option>
+                        <div class="relative ltr-select-wrapper">
+                             <!-- הוספתי את המחלקה ltr-select כאן -->
+                            <select id="model" name="model" required disabled class="ltr-select w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <option value="">-- Select Make First --</option>
                             </select>
-                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
+                             <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                         </div>
                     </div>
                     <div class="group space-y-3">
                         <label for="year" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">שנתון <span class="text-secondary mr-1">*</span></label>
-                        <div class="relative">
-                            <select id="year" name="year" required disabled class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">-- קודם בחר דגם --</option>
+                        <div class="relative ltr-select-wrapper">
+                             <!-- הוספתי את המחלקה ltr-select כאן -->
+                            <select id="year" name="year" required disabled class="ltr-select w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                                <option value="">-- Select Model First --</option>
                             </select>
-                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
+                             <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                         </div>
                     </div>
                 </div>
