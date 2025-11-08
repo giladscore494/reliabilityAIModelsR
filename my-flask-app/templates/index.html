@@ -39,6 +39,36 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
+        /* עיצוב טאבים */
+        .tab-btn {
+            @apply px-4 py-2 font-medium text-sm rounded-t-lg border-b-2 border-transparent hover:text-primary hover:border-primary/30 transition-all duration-200;
+        }
+        .tab-btn.active {
+            @apply text-primary border-primary bg-primary/10;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* ציון אמינות */
+        .score-circle {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: white;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         /* שיפורי גלילה */
         ::-webkit-scrollbar { width: 10px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
@@ -47,7 +77,7 @@
     </style>
 
     <script>
-        // קונפיגורציה של Tailwind - מוגדרת לפני הטעינה המלאה
+        // קונפיגורציה של Tailwind
         tailwind.config = {
             darkMode: 'class',
             theme: {
@@ -57,6 +87,9 @@
                         secondary: { DEFAULT: '#EC4899', 50: '#fdf2f8', 100: '#fce7f3', 200: '#fbcfe8', 300: '#f9a8d4', 400: '#f472b6', 500: '#ec4899', 600: '#db2777', 700: '#be185d', 800: '#9d174d', 900: '#831843' },
                         dark: '#0F172A',
                         'dark-lighter': '#1E293B',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
                     },
                     boxShadow: {
                         'neon': '0 0 20px rgba(99, 102, 241, 0.4)',
@@ -71,7 +104,6 @@
     <!-- === NAVBAR === -->
     <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <!-- לוגו -->
             <a href="/" class="flex items-center space-x-2 space-x-reverse group transition duration-300">
                 <span class="text-3xl filter drop-shadow-lg group-hover:scale-110 transition-transform">🚗</span>
                 <h1 class="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
@@ -79,7 +111,6 @@
                 </h1>
             </a>
 
-            <!-- אזור משתמש -->
             <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
                 {% if user and user.is_authenticated %}
                     <div class="hidden md:flex items-center gap-2 text-slate-400">
@@ -93,7 +124,11 @@
                           <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
                         </span>
                     </a>
-                    <a href="/logout" class="hidden sm:inline-block text-slate-400 hover:text-white transition-colors">התנתק</a>
+                    <!-- כפתור התנתקות -->
+                    <a href="/logout" class="px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                        <span class="hidden sm:inline">התנתק</span>
+                    </a>
                 {% else %}
                     <a href="/login" class="px-6 py-2.5 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0">
                         התחברות
@@ -127,12 +162,9 @@
 
         <!-- === THE TOOL CARD === -->
         <div class="relative z-10 w-full max-w-4xl bg-dark-lighter/60 backdrop-blur-xl border border-slate-700/50 p-8 md:p-12 rounded-[2.5rem] shadow-2xl fade-in delay-100">
-            
-            <!-- גבול זוהר עדין -->
             <div class="absolute inset-0 rounded-[2.5rem] border-2 border-transparent bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 pointer-events-none" style="mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);"></div>
 
             {% if user and user.is_authenticated %}
-            <!-- מצב מחובר -->
             <form id="car-form" class="space-y-10">
                 <div class="flex items-center space-x-4 space-x-reverse border-b border-slate-700/50 pb-6">
                     <div class="bg-gradient-to-br from-primary to-secondary p-3 rounded-2xl shadow-lg">
@@ -146,9 +178,7 @@
 
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
                     <div class="group space-y-3">
-                        <label for="make" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
-                             יצרן <span class="text-secondary mr-1">*</span>
-                        </label>
+                        <label for="make" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">יצרן <span class="text-secondary mr-1">*</span></label>
                         <div class="relative">
                             <select id="make" name="make" required class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all hover:border-slate-600 cursor-pointer">
                                 <option value="">בחר יצרן מהרשימה...</option>
@@ -156,11 +186,6 @@
                                     {% for make in car_models_data.keys()|sort %}
                                         <option value="{{ make }}">{{ make }}</option>
                                     {% endfor %}
-                                {% else %}
-                                    <!-- נתונים לדוגמה במקרה שאין חיבור לשרת -->
-                                    <option value="Toyota">Toyota</option>
-                                    <option value="Mazda">Mazda</option>
-                                    <option value="Hyundai">Hyundai</option>
                                 {% endif %}
                             </select>
                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-primary transition-colors">
@@ -168,32 +193,22 @@
                             </div>
                         </div>
                     </div>
-
                     <div class="group space-y-3">
-                        <label for="model" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
-                            דגם <span class="text-secondary mr-1">*</span>
-                        </label>
+                        <label for="model" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">דגם <span class="text-secondary mr-1">*</span></label>
                         <div class="relative">
                             <select id="model" name="model" required disabled class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 <option value="">-- קודם בחר יצרן --</option>
                             </select>
-                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                            </div>
+                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                         </div>
                     </div>
-
                     <div class="group space-y-3">
-                        <label for="year" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
-                            שנתון <span class="text-secondary mr-1">*</span>
-                        </label>
+                        <label for="year" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">שנתון <span class="text-secondary mr-1">*</span></label>
                         <div class="relative">
                             <select id="year" name="year" required disabled class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                                 <option value="">-- קודם בחר דגם --</option>
                             </select>
-                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                            </div>
+                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
                         </div>
                     </div>
                 </div>
@@ -262,7 +277,6 @@
                 </div>
             </form>
             {% else %}
-            <!-- מצב לא מחובר -->
             <div class="text-center py-8 space-y-8">
                 <div class="relative inline-block">
                     <div class="absolute inset-0 bg-primary/30 blur-3xl rounded-full"></div>
@@ -282,40 +296,40 @@
                     התחברות מהירה עם Google
                 </a>
             </div>
-            <!-- טופס דמי לשמירת גובה -->
-            <div class="hidden" aria-hidden="true" style="min-height: 400px;"></div>
             {% endif %}
         </div>
 
-        <!-- === SOCIAL PROOF === -->
-        <div class="mt-32 grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto text-center fade-in delay-200">
-            <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
-                <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">בינה מלאכותית מתקדמת</h3>
-                <p class="text-slate-400 leading-relaxed">המערכת סורקת אלפי מקורות מידע בזמן אמת כדי לספק תמונה עדכנית ומדויקת.</p>
-            </div>
-            <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
-                <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-white transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">מותאם לישראל</h3>
-                <p class="text-slate-400 leading-relaxed">התייחסות ספציפית לאקלים החם, הפקקים, איכות הדלק ומחירי החלפים בארץ.</p>
-            </div>
-            <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
-                <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-green-500/10 text-green-500 group-hover:bg-green-500 group-hover:text-white transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">חיסכון כספי משמעותי</h3>
-                <p class="text-slate-400 leading-relaxed">מניעת קניית "לימון" וחיזוי הוצאות תחזוקה עתידיות יכולים לחסוך עשרות אלפי שקלים.</p>
-            </div>
-        </div>
-
-        <!-- תוצאות -->
+        <!-- תוצאות עם טאבים -->
         <div id="results-container" class="hidden w-full max-w-5xl mt-16 fade-in delay-300">
-            <div id="results-content" class="bg-dark-lighter/80 backdrop-blur-xl p-8 md:p-12 rounded-[2rem] border border-slate-700/50 shadow-2xl text-slate-200 prose prose-lg prose-invert max-w-none prose-headings:text-white prose-a:text-primary prose-strong:text-white">
-                <!-- התוצאות יוזרקו לכאן -->
+            <div class="bg-dark-lighter/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] border border-slate-700/50 shadow-2xl text-slate-200">
+                
+                <!-- ציון אמינות ראשי -->
+                <div id="reliability-score-container" class="flex flex-col items-center justify-center mb-10 text-center">
+                     <!-- הציון יוזרק לכאן ע"י JS -->
+                </div>
+
+                <!-- ניווט טאבים -->
+                <div class="flex flex-wrap border-b border-slate-700 mb-6 overflow-x-auto">
+                    <button class="tab-btn active" onclick="openTab(event, 'summary')">📄 סיכום מנהלים</button>
+                    <button class="tab-btn" onclick="openTab(event, 'faults')">🔧 תקלות נפוצות</button>
+                    <button class="tab-btn" onclick="openTab(event, 'costs')">💰 עלויות אחזקה</button>
+                    <button class="tab-btn" onclick="openTab(event, 'competitors')">🆚 מתחרים</button>
+                </div>
+
+                <!-- תוכן הטאבים -->
+                <div id="summary" class="tab-content active prose prose-invert max-w-none">
+                    <!-- תוכן סיכום יוזרק כאן -->
+                </div>
+                <div id="faults" class="tab-content prose prose-invert max-w-none">
+                    <!-- תוכן תקלות יוזרק כאן -->
+                </div>
+                <div id="costs" class="tab-content prose prose-invert max-w-none">
+                    <!-- תוכן עלויות יוזרק כאן -->
+                </div>
+                <div id="competitors" class="tab-content prose prose-invert max-w-none">
+                    <!-- תוכן מתחרים יוזרק כאן -->
+                </div>
+
             </div>
         </div>
 
@@ -336,38 +350,66 @@
         </div>
     </footer>
 
-    <!-- נתונים לסקריפט -->
     <script>
-        // משתני עזר בטוחים - ייטענו גם אם Flask לא פעיל
-        let userIsAuthenticated = false;
-        let carModelsData = {};
-
-        // שימוש ב-template literals כדי למנוע שגיאות תחביר כאשר Jinja לא פעיל
-        // השרת יחליף את כל הביטוי כולל הגרשיים אם הוא פעיל, אחרת יישאר מחרוזת שניתן לבדוק
+        // משתני עזר
         const rawAuth = `{{ user.is_authenticated | tojson if user is defined and user.is_authenticated is defined else 'false' }}`;
         const rawData = `{{ car_models_data | tojson if car_models_data is defined else '{}' }}`;
+        let userIsAuthenticated = false, carModelsData = {};
 
-        if (rawAuth.includes('{' + '{')) {
-             console.warn("Running in static mode (no Flask backend detected).");
-             // מצב סטטי - נתונים לבדיקה
-             userIsAuthenticated = false; // שנה ל-true כדי לבדוק מצב מחובר
-             carModelsData = {
-                 "Toyota": {"Corolla": [2020, 2021, 2022], "RAV4": [2021, 2022]},
-                 "Mazda": {"3": [2019, 2020, 2021], "CX-5": [2020, 2022]},
-                 "Hyundai": {"Tucson": [2021, 2022, 2023], "Ioniq 5": [2022, 2023]}
-             };
-        } else {
-            // מצב שרת פעיל - המרת הנתונים האמיתיים
-            try {
-                userIsAuthenticated = JSON.parse(rawAuth);
-                carModelsData = JSON.parse(rawData);
-            } catch (e) {
-                console.error("Failed to parse server data:", e);
+        if (!rawAuth.includes('{' + '{')) {
+             try { userIsAuthenticated = JSON.parse(rawAuth); carModelsData = JSON.parse(rawData); } catch (e) { console.error("Data parse error", e); }
+        }
+
+        // פונקציית טאבים
+        function openTab(evt, tabName) {
+            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+            document.querySelectorAll('.tab-btn').forEach(tb => tb.classList.remove('active'));
+            document.getElementById(tabName).classList.add('active');
+            evt.currentTarget.classList.add('active');
+        }
+
+        // פונקציית הצגת תוצאות משודרגת
+        // הערה: פונקציה זו אמורה להיקרא מתוך ה-JS הראשי שלך לאחר קבלת התשובה מהשרת.
+        // כרגע היא מוגדרת כאן כדי שתוכל להעתיק הכל יחד, אבל עדיף שתהיה בקובץ נפרד.
+        window.displayResultsOverride = function(data) {
+            const container = document.getElementById('results-container');
+            const scoreContainer = document.getElementById('reliability-score-container');
+            
+            // חילוץ ציון (הנחה: ה-AI מחזיר ציון בפורמט מסוים, או שנצטרך לפרסר אותו)
+            // לצורך הדגמה, נניח שהשרת מחזיר שדה 'score' או שנחלץ אותו מהטקסט.
+            // אם אין ציון מפורש, נשתמש בערך דמה או ננסה למצוא אותו בטקסט.
+            let score = 75; // ערך ברירת מחדל להדגמה
+            // נסה למצוא ציון בטקסט אם הוא לא מגיע כשדה נפרד
+            const scoreMatch = data.response.match(/ציון.*?(\d{1,3})/);
+            if (scoreMatch && scoreMatch[1]) {
+                score = parseInt(scoreMatch[1]);
             }
+
+            let scoreColor = 'bg-warning', scoreText = 'אמינות בינונית';
+            if (score >= 80) { scoreColor = 'bg-success'; scoreText = 'רכב אמין מאוד 🏆'; }
+            else if (score >= 70) { scoreColor = 'bg-primary'; scoreText = 'רכב אמין ✅'; }
+            else if (score <= 50) { scoreColor = 'bg-danger'; scoreText = 'פוטנציאל לאמינות נמוכה ⚠️'; }
+
+            // הצגת הציון
+            scoreContainer.innerHTML = `
+                <div class="score-circle ${scoreColor} mb-4">
+                    <span class="text-5xl">${score}</span>
+                    <span class="text-sm opacity-80">מתוך 100</span>
+                </div>
+                <h3 class="text-2xl font-bold ${scoreColor.replace('bg-', 'text-')}">${scoreText}</h3>
+            `;
+
+            // פיזור התוכן לטאבים (דורש שה-AI יחזיר תשובה מובנית, או פרסור חכם)
+            // כרגע, כפתרון זמני, נכניס את כל הטקסט ללשונית הסיכום אם אין מבנה.
+            // באידיאל, השרת צריך להחזיר JSON עם שדות נפרדים לכל חלק.
+            document.getElementById('summary').innerHTML = marked.parse(data.response); 
+            
+            container.classList.remove('hidden');
+            // גלילה חלקה לתוצאות
+            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     </script>
-    <!-- סקריפט ראשי -->
+    <!-- סקריפט ראשי - ודא שהוא משתמש ב-displayResultsOverride או מעודכן בהתאם -->
     <script src="/static/script.js"></script>
-
 </body>
 </html>
