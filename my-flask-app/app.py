@@ -1,416 +1,415 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl" class="scroll-smooth">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚗 Car Reliability Analyzer - בדיקת אמינות רכב ב-AI</title>
-    
-    <!-- טעינת ספריות חיצוניות -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+# -*- coding: utf-8 -*-
+# ===================================================================
+# 🚗 Car Reliability Analyzer – Israel
+# v7.1.0 (Final Code with Legal Routes + 18+ front-gate in UI)
+# With Dynamic Google OAuth Redirect URI (yedaarechev.com / Railway)
+# ===================================================================
 
-    <style>
-        /* סגנונות בסיס */
-        :root { --bg-dark: #0F172A; --text-light: #E2E8F0; --primary: #6366F1; }
-        body {
-            font-family: 'Heebo', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            margin: 0;
-            overflow-x: hidden;
-        }
-        /* אנימציות */
-        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .delay-100 { animation-delay: 100ms; }
-        .delay-200 { animation-delay: 200ms; }
-        .delay-300 { animation-delay: 300ms; }
+import os, re, json, traceback
+import time as pytime
+from typing import Optional, Tuple, Any, Dict
+from datetime import datetime, time, timedelta
 
-        /* ספינר */
-        .loader {
-            border: 3px solid rgba(255,255,255,0.2);
-            border-top-color: var(--primary);
-            border-radius: 50%;
-            width: 1.5rem;
-            height: 1.5rem;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
+from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask_sqlalchemy import SQLAlchemy
+from flask_login import (
+    LoginManager, UserMixin, login_user, logout_user,
+    current_user, login_required
+)
+from authlib.integrations.flask_client import OAuth
+from werkzeug.middleware.proxy_fix import ProxyFix
+from json_repair import repair_json
+import google.generativeai as genai
+import pandas as pd
 
-        /* טאבים */
-        .tab-btn {
-            @apply px-4 py-2 font-medium text-sm rounded-t-lg border-b-2 border-transparent hover:text-indigo-400 hover:border-indigo-500/30 transition-all duration-200;
-        }
-        .tab-btn.active {
-            @apply text-indigo-400 border-indigo-500 bg-indigo-500/10;
-        }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+# ==================================
+# === 1. יצירת אובייקטים גלובליים ===
+# ==================================
+db = SQLAlchemy()
+login_manager = LoginManager()
+oauth = OAuth()
 
-        /* ציון אמינות */
-        .score-circle {
-            width: 150px; height: 150px; border-radius: 50%;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            font-weight: 900; color: white;
-            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
+# =========================
+# ========= CONFIG ========
+# =========================
+PRIMARY_MODEL = "gemini-2.5-flash"
+FALLBACK_MODEL = "gemini-1.5-flash-latest"
+RETRIES = 2
+RETRY_BACKOFF_SEC = 1.5
+GLOBAL_DAILY_LIMIT = 1000
+USER_DAILY_LIMIT = 5
+MAX_CACHE_DAYS = 45
 
-        /* גלילה */
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+# ==================================
+# === 2. מודלים של DB (גלובלי) ===
+# ==================================
+class User(db.Model, UserMixin):
+    id = db.Column(db.Integer, primary_key=True)
+    google_id = db.Column(db.String(200), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    name = db.Column(db.String(100))
+    searches = db.relationship('SearchHistory', backref='user', lazy=True)
 
-        /* כיוון LTR לתיבות בחירה */
-        .ltr-select { direction: ltr; text-align: left; }
-        .ltr-select-wrapper .pointer-events-none { left: auto; right: 1rem; }
-    </style>
+class SearchHistory(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    make = db.Column(db.String(100))
+    model = db.Column(db.String(100))
+    year = db.Column(db.Integer)
+    mileage_range = db.Column(db.String(100))
+    fuel_type = db.Column(db.String(100))
+    transmission = db.Column(db.String(100))
+    result_json = db.Column(db.Text, nullable=False)
 
-    <script>
-        // הגדרות Tailwind
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: '#6366F1', secondary: '#EC4899',
-                        dark: '#0F172A', 'dark-lighter': '#1E293B',
-                        success: '#10B981', warning: '#F59E0B', danger: '#EF4444',
-                    },
-                    boxShadow: { 'neon': '0 0 20px rgba(99, 102, 241, 0.4)' }
-                }
-            }
-        }
-    </script>
-</head>
-<body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased selection:bg-primary/30 selection:text-white">
+# ==================================
+# === 3. פונקציות עזר (גלובלי) ===
+# ==================================
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
-    <!-- === NAVBAR === -->
-    <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <a href="/" class="flex items-center space-x-2 space-x-reverse group transition duration-300">
-                <span class="text-3xl filter drop-shadow-lg group-hover:scale-110 transition-transform">🚗</span>
-                <h1 class="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
-                    CarAnalyzer.AI
-                </h1>
-            </a>
+# --- טעינת המילון ---
+try:
+    from car_models_dict import israeli_car_market_full_compilation
+    print(f"[DICT] ✅ Loaded car_models_dict. Manufacturers: {len(israeli_car_market_full_compilation)}")
+    try:
+        _total_models = sum(len(models) for models in israeli_car_market_full_compilation.values())
+        print(f"[DICT] ✅ Total models loaded: {_total_models}")
+    except Exception as inner_e:
+        print(f"[DICT] ⚠️ Count models failed: {inner_e}")
+except Exception as e:
+    print(f"[DICT] ❌ Failed to import car_models_dict: {e}")
+    israeli_car_market_full_compilation = {"Toyota": ["Corolla (2008-2025)"]}
+    print("[DICT] ⚠️ Fallback applied — Toyota only")
 
-            <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
-                {% if user and user.is_authenticated %}
-                    <div class="hidden md:flex items-center gap-2 text-slate-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
-                        <span>{{ user.name.split(' ')[0] if user.name else 'אורח' }}</span>
-                    </div>
-                    <a href="/dashboard" class="relative px-5 py-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/50 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
-                        החיפושים שלי
-                         <span class="absolute -top-1 -right-1 flex h-3 w-3"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span></span>
-                    </a>
-                    <a href="/logout" class="px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
-                        <span class="hidden sm:inline">התנתק</span>
-                    </a>
-                {% else %}
-                    <a href="/login" class="px-6 py-2.5 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0">
-                        התחברות
-                    </a>
-                {% endif %}
-            </div>
-        </div>
-    </header>
+import re as _re
+def normalize_text(s: Any) -> str:
+    if s is None: return ""
+    s = _re.sub(r"\(.*?\)", " ", str(s)).strip().lower()
+    return _re.sub(r"\s+", " ", s)
 
-    <!-- === MAIN HERO === -->
-    <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col items-center overflow-hidden">
-        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none" style="background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, rgba(15,23,42,0) 70%);"></div>
+def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
+    m = normalize_text(mileage_range or "")
+    if not m: return 0, None
+    if "200" in m and "+" in m: return -15, "הציון הותאם מטה עקב קילומטראז׳ גבוה מאוד (200K+)."
+    if "150" in m and "200" in m: return -10, "הציון הותאם מטה עקב קילומטראז׳ גבוה (150–200 אלף ק״מ)."
+    if "100" in m and "150" in m: return -5, "הציון הותאם מעט מטה עקב קילומטראז׳ בינוני-גבוה (100–150 אלף ק״מ)."
+    return 0, None
 
-        <div class="relative z-10 text-center max-w-4xl mx-auto mb-16 fade-in">
-            <span class="inline-block py-1 px-3 rounded-full bg-slate-800/50 border border-slate-700 text-primary text-sm font-semibold mb-5">
-                ✨ מנוע AI חדש: גרסה 2.0 זמינה כעת
-            </span>
-            <h2 class="text-5xl md:text-7xl font-extrabold text-white mb-8 leading-tight tracking-tight">
-                אל תקנה רכב לפני שתדע את <span class="relative inline-block"><span class="absolute inset-0 bg-gradient-to-r from-primary to-secondary blur-2xl opacity-30"></span><span class="relative text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">האמת המלאה</span></span>
-            </h2>
-            <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                ניתוח אמינות מעמיק המבוסס על מיליוני נתונים, מותאם במיוחד לשוק הרכב הישראלי ולתנאי הארץ.
-            </p>
-        </div>
+def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, Optional[str]]:
+    try:
+        adj, note = mileage_adjustment(mileage_range)
+        base_key = "base_score_calculated"
+        if base_key in model_output:
+            try:
+                base_val = float(model_output[base_key])
+            except Exception:
+                m = _re.search(r"-?\d+(\.\d+)?", str(model_output[base_key]))
+                base_val = float(m.group()) if m else None
+            if base_val is not None:
+                new_val = max(0.0, min(100.0, base_val + adj))
+                model_output[base_key] = round(new_val, 1)
+        return model_output, note
+    except Exception:
+        return model_output, None
 
-        <div class="relative z-10 w-full max-w-4xl bg-dark-lighter/60 backdrop-blur-xl border border-slate-700/50 p-8 md:p-12 rounded-[2.5rem] shadow-2xl fade-in delay-100">
-            <div class="absolute inset-0 rounded-[2.5rem] border-2 border-transparent bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 pointer-events-none" style="mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);"></div>
+def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_range):
+    extra = f" תת-דגם/תצורה: {sub_model}" if sub_model else ""
+    return f"""
+אתה מומחה לאמינות רכבים בישראל עם גישה לחיפוש אינטרנטי.
+הניתוח חייב להתייחס ספציפית לטווח הקילומטראז' הנתון.
+החזר JSON בלבד:
 
-            {% if user and user.is_authenticated %}
-            <form id="car-form" class="space-y-10">
-                <div class="flex items-center space-x-4 space-x-reverse border-b border-slate-700/50 pb-6">
-                    <div class="bg-gradient-to-br from-primary to-secondary p-3 rounded-2xl shadow-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-white">מפרט הרכב לבדיקה</h3>
-                        <p class="text-slate-400 text-sm">אנא מלא את הפרטים המדויקים ביותר לקבלת תוצאה מיטבית</p>
-                    </div>
-                </div>
+{{
+  "search_performed": true,
+  "score_breakdown": {{
+    "engine_transmission_score": "מספר (1-10)",
+    "electrical_score": "מספר (1-10)",
+    "suspension_brakes_score": "מספר (1-10)",
+    "maintenance_cost_score": "מספר (1-10)",
+    "satisfaction_score": "מספר (1-10)",
+    "recalls_score": "מספר (1-10)"
+  }},
+  "base_score_calculated": "מספר (0-100)",
+  "common_issues": ["תקלות נפוצות רלוונטיות לק\"מ"],
+  "avg_repair_cost_ILS": "מספר ממוצע",
+  "issues_with_costs": [
+    {{"issue": "שם התקלה", "avg_cost_ILS": "מספר", "source": "מקור", "severity": "נמוך/בינוני/גבוה"}}
+  ],
+  "reliability_summary": "סיכום בעברית",
+  "sources": ["רשימת אתרים"],
+  "recommended_checks": ["בדיקות מומלצות ספציפיות"],
+  "common_competitors_brief": [
+      {{"model": "שם מתחרה 1", "brief_summary": "אמינות בקצרה"}},
+      {{"model": "שם מתחרה 2", "brief_summary": "אמינות בקצרה"}}
+  ]
+}}
 
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div class="group space-y-3">
-                        <label for="make" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">יצרן <span class="text-secondary mr-1">*</span></label>
-                        <div class="relative ltr-select-wrapper">
-                            <select id="make" name="make" required class="ltr-select w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all hover:border-slate-600 cursor-pointer">
-                                <option value="">Select Make...</option>
-                                {% if car_models_data %}
-                                    {% for make in car_models_data.keys()|sort %}
-                                        <option value="{{ make }}">{{ make }}</option>
-                                    {% endfor %}
-                                {% endif %}
-                            </select>
-                            <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
-                        </div>
-                    </div>
-                    <div class="group space-y-3">
-                        <label for="model" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">דגם <span class="text-secondary mr-1">*</span></label>
-                        <div class="relative ltr-select-wrapper">
-                            <select id="model" name="model" required disabled class="ltr-select w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">-- Select Make First --</option>
-                            </select>
-                             <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
-                        </div>
-                    </div>
-                    <div class="group space-y-3">
-                        <label for="year" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">שנתון <span class="text-secondary mr-1">*</span></label>
-                        <div class="relative ltr-select-wrapper">
-                            <select id="year" name="year" required disabled class="ltr-select w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">-- Select Model First --</option>
-                            </select>
-                             <div class="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500"><svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg></div>
-                        </div>
-                    </div>
-                </div>
+רכב: {make} {model}{extra} {int(year)}
+טווח קילומטראז': {mileage_range}
+סוג דלק: {fuel_type}
+תיבת הילוכים: {transmission}
+כתוב בעברית בלבד.
+""".strip()
 
-                <div class="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50 space-y-6">
-                    <h4 class="text-lg font-bold text-white flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-primary" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
-                        דיוק נתונים (אופציונלי)
-                    </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">מד אוץ (ק"מ)</label>
-                            <select id="mileage_range" name="mileage_range" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
-                                <option>עד 50,000 ק"מ</option>
-                                <option>50,000 - 100,000 ק"מ</option>
-                                <option selected>100,000 - 150,000 ק"מ</option>
-                                <option>150,000 - 200,000 ק"מ</option>
-                                <option>מעל 200,000 ק"מ</option>
-                            </select>
-                        </div>
-                        <div class="space-y-2">
-                             <label class="text-xs font-bold uppercase tracking-wider text-slate-400">סוג מנוע</label>
-                            <select id="fuel_type" name="fuel_type" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
-                                <option selected>בנזין</option>
-                                <option>דיזל</option>
-                                <option>היברידי (רגיל/פלאג-אין)</option>
-                                <option>חשמלי מלא (BEV)</option>
-                            </select>
-                        </div>
-                         <div class="space-y-2">
-                             <label class="text-xs font-bold uppercase tracking-wider text-slate-400">תיבת הילוכים</label>
-                            <select id="transmission" name="transmission" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
-                                <option selected>אוטומטית (פלנטרית/רציפה)</option>
-                                <option>רובוטית (כפולת מצמדים)</option>
-                                <option>ידנית</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <label for="sub_model" class="text-xs font-bold uppercase tracking-wider text-slate-400">רמת גימור / תת-דגם</label>
-                        <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: Premium, Sport, GLI, 1.5 Turbo..." class="w-full bg-slate-900/50 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary placeholder-slate-600 text-right" dir="rtl">
-                    </div>
-                </div>
+def call_model_with_retry(prompt: str) -> dict:
+    last_err = None
+    for model_name in [PRIMARY_MODEL, FALLBACK_MODEL]:
+        try:
+            llm = genai.GenerativeModel(model_name)
+        except Exception as e:
+            last_err = e
+            print(f"[AI] ❌ init {model_name}: {e}")
+            continue
+        for attempt in range(1, RETRIES + 1):
+            try:
+                print(f"[AI] Calling {model_name} (attempt {attempt})")
+                resp = llm.generate_content(prompt)
+                raw = (getattr(resp, "text", "") or "").strip()
+                try:
+                    m = _re.search(r"\{.*\}", raw, _re.DOTALL)
+                    data = json.loads(m.group()) if m else json.loads(raw)
+                except Exception:
+                    data = json.loads(repair_json(raw))
+                print("[AI] ✅ success")
+                return data
+            except Exception as e:
+                print(f"[AI] ⚠️ {model_name} attempt {attempt} failed: {e}")
+                last_err = e
+                if attempt < RETRIES:
+                    pytime.sleep(RETRY_BACKOFF_SEC)
+                continue
+    raise RuntimeError(f"Model failed: {repr(last_err)}")
 
-                <div class="pt-4 space-y-8">
-                    <label class="flex items-start gap-4 p-4 rounded-xl bg-slate-800/20 border border-slate-700/50 cursor-pointer group hover:bg-slate-800/40 transition-colors">
-                        <input type="checkbox" id="legal-confirm" name="legal-confirm" required class="mt-1 w-6 h-6 rounded border-2 border-slate-600 text-primary focus:ring-offset-0 focus:ring-primary bg-slate-900/50 checked:bg-primary transition-colors">
-                        <span class="text-sm text-slate-300 leading-relaxed">
-                            אני מאשר/ת כי אני מעל גיל 18, וקראתי והסכמתי <a href="{{ url_for('terms') }}" target="_blank" class="text-primary font-bold hover:underline underline-offset-4">לתנאי השימוש</a> ו<a href="{{ url_for('privacy') }}" target="_blank" class="text-primary font-bold hover:underline underline-offset-4">מדיניות הפרטיות</a> של האתר.
-                        </span>
-                    </label>
-                    <p id="legal-error" class="hidden flex items-center text-red-400 text-sm bg-red-950/30 border border-red-900/50 p-3 rounded-lg animate-pulse">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                        אנא אשר/י את תנאי השימוש כדי להמשיך בתהליך.
-                    </p>
+# ========================================
+# ===== ★★★ 4. פונקציית ה-Factory ★★★ ======
+# ========================================
+def create_app():
+    app = Flask(__name__)
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
-                    <button type="submit" id="submit-button" class="relative w-full md:w-auto md:min-w-[360px] mx-auto flex items-center justify-center py-5 px-10 bg-gradient-to-r from-primary to-secondary hover:from-primary/110 hover:to-secondary/110 text-white font-black text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 overflow-hidden group">
-                        <span class="absolute inset-0 w-full h-full bg-white/20 group-hover:w-0 transition-all duration-500 ease-out opacity-0 group-hover:opacity-100"></span>
-                        <span class="button-text relative z-10 flex items-center">🚀 הפעל מנוע ניתוח AI</span>
-                        <div class="spinner hidden relative z-10 mr-3" aria-hidden="true"><div class="loader"></div></div>
-                    </button>
-                </div>
-            </form>
-            {% else %}
-            <div class="text-center py-8 space-y-8">
-                <div class="relative inline-block">
-                    <div class="absolute inset-0 bg-primary/30 blur-3xl rounded-full"></div>
-                    <div class="relative bg-dark-lighter p-6 rounded-3xl border border-slate-700/50 shadow-xl"><span class="text-7xl filter drop-shadow-lg">🔒</span></div>
-                </div>
-                <div>
-                    <h3 class="text-3xl font-bold text-white mb-4">גישה לחברי מועדון בלבד</h3>
-                    <p class="text-slate-400 text-lg max-w-md mx-auto">הצטרף לאלפי ישראלים שכבר חסכו כסף וכאב ראש. ההרשמה קצרה וחינמית.</p>
-                </div>
-                <a href="/login" class="group relative inline-flex items-center justify-center px-10 py-5 text-xl font-bold text-white transition-all duration-300 bg-gradient-to-r from-primary to-secondary rounded-2xl hover:scale-[1.03] hover:shadow-neon active:scale-95 overflow-hidden">
-                    <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
-                    <svg class="w-7 h-7 ml-3" fill="currentColor" viewBox="0 0 24 24"><path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.2,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.1,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.25,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1V11.1Z" /></svg>
-                    התחברות מהירה עם Google
-                </a>
-            </div>
-            {% endif %}
-        </div>
+    # פונקציה חכמה לבחירת redirect_uri
+    def get_redirect_uri():
+        """
+        Returns the correct OAuth redirect URI for Google login.
+        Uses yedaarechev.com only when it's actually being used
+        and the SSL is active, otherwise fallback to Railway.
+        """
+        domain = request.host or ""
+        if "yedaarechev.com" in domain:
+            uri = "https://yedaarechev.com/auth"
+        else:
+            uri = "https://reliabilityaimodelsr-production.up.railway.app/auth"
+        print(f"[AUTH] Using redirect_uri={uri} (host={domain})")
+        return uri
 
-        <!-- תוצאות -->
-        <div id="results-container" class="hidden w-full max-w-5xl mt-16 fade-in delay-300">
-            <div class="bg-dark-lighter/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] border border-slate-700/50 shadow-2xl text-slate-200">
-                
-                <div id="reliability-score-container" class="flex flex-col items-center justify-center mb-10 text-center"></div>
+    # Secrets
+    app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DATABASE_URL')
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY')
 
-                <div class="flex flex-wrap border-b border-slate-700 mb-6 overflow-x-auto">
-                    <button class="tab-btn active" onclick="openTab(event, 'summary')">📄 סיכום מנהלים</button>
-                    <button class="tab-btn" onclick="openTab(event, 'faults')">🔧 תקלות נפוצות</button>
-                    <button class="tab-btn" onclick="openTab(event, 'costs')">💰 עלויות אחזקה</button>
-                    <button class="tab-btn" onclick="openTab(event, 'competitors')">🆚 מתחרים</button>
-                </div>
+    if not app.config['SQLALCHEMY_DATABASE_URI']:
+        print("[BOOT] ⚠️ DATABASE_URL not set. Using in-memory sqlite.")
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///:memory:'
+    if not app.config['SECRET_KEY']:
+        print("[BOOT] ⚠️ SECRET_KEY not set. Using dev fallback.")
+        app.config['SECRET_KEY'] = 'dev-secret-key-that-is-not-secret'
 
-                <div id="summary" class="tab-content active prose prose-invert max-w-none"></div>
-                <div id="faults" class="tab-content prose prose-invert max-w-none"></div>
-                <div id="costs" class="tab-content prose prose-invert max-w-none"></div>
-                <div id="competitors" class="tab-content prose prose-invert max-w-none"></div>
-            </div>
-        </div>
+    # Init
+    db.init_app(app)
+    login_manager.init_app(app)
+    oauth.init_app(app)
+    login_manager.login_view = 'index'
 
-    </main>
+    # Gemini key
+    GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+    if not GEMINI_API_KEY:
+        print("[AI] ⚠️ GEMINI_API_KEY missing")
+    genai.configure(api_key=GEMINI_API_KEY)
 
-    <!-- === FOOTER === -->
-    <footer class="mt-32 py-12 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition-opacity">
-                <span class="text-2xl">🚗</span>
-                <span class="font-bold text-white">CarAnalyzer.AI</span>
-            </div>
-            <p class="text-slate-500 text-sm">© 2025 ידע רכב. פותח בגאווה בישראל 🇮🇱.</p>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition-colors">מדיניות פרטיות</a>
-                <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition-colors">תקנון שימוש</a>
-            </div>
-        </div>
-    </footer>
+    # OAuth
+    oauth.register(
+        name='google',
+        client_id=os.environ.get('GOOGLE_CLIENT_ID'),
+        client_secret=os.environ.get('GOOGLE_CLIENT_SECRET'),
+        server_metadata_url='https://accounts.google.com/.well-known/openid-configuration',
+        client_kwargs={'scope': 'openid email profile'},
+        api_base_url='https://www.googleapis.com/oauth2/v1/',
+        userinfo_endpoint='https://openidconnect.googleapis.com/v1/userinfo',
+        claims_options={'iss': {'values': ['https://accounts.google.com', 'accounts.google.com']}}
+    )
 
-    <!-- נתונים קריטיים ל-JavaScript -->
-    <script type="application/json" id="auth-data">
-        {% if user.is_authenticated %}true{% else %}false{% endif %}
-    </script>
-    <script type="application/json" id="car-data">
-        {{ car_models_data | tojson | safe }}
-    </script>
+    # Routes
+    @app.route('/')
+    def index():
+        return render_template('index.html',
+                               car_models_data=israeli_car_market_full_compilation,
+                               user=current_user)
 
-    <script>
-        // פונקציית עזר לקריאת הנתונים בצורה בטוחה
-        function getSafeData(elementId, defaultValue) {
-            try {
-                const element = document.getElementById(elementId);
-                if (element) {
-                    const text = element.textContent.trim();
-                    // אם הטקסט מתחיל ב-{% או {{, זה אומר שהשרת לא רינדר אותו
-                    if (text.startsWith('{%') || text.startsWith('{{')) {
-                        console.warn(`Template tag found in #${elementId}, using default value.`);
-                        return defaultValue;
-                    }
-                    return JSON.parse(text);
-                }
-            } catch (e) {
-                console.warn(`Failed to parse data from #${elementId}, using default value:`, e);
-            }
-            return defaultValue;
-        }
+    @app.route('/login')
+    def login():
+        redirect_uri = get_redirect_uri()
+        return oauth.google.authorize_redirect(redirect_uri, state=None)
 
-        // טעינת הנתונים למשתנים גלובליים
-        const userIsAuthenticated = getSafeData('auth-data', false);
-        const carModelsData = getSafeData('car-data', {});
+    @app.route('/auth')
+    def auth():
+        try:
+            token = oauth.google.authorize_access_token()
+            userinfo = oauth.google.get('userinfo').json()
+            user = User.query.filter_by(google_id=userinfo['id']).first()
+            if not user:
+                user = User(
+                    google_id=userinfo['id'],
+                    email=userinfo.get('email', ''),
+                    name=userinfo.get('name', '')
+                )
+                db.session.add(user)
+                db.session.commit()
+            login_user(user)
+            return redirect(url_for('index'))
+        except Exception as e:
+            print(f"[AUTH] ❌ {e}")
+            traceback.print_exc()
+            try:
+                logout_user()
+            except Exception:
+                pass
+            return redirect(url_for('index'))
 
-        // פונקציית עזר לטאבים
-        function openTab(evt, tabName) {
-            document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
-            document.querySelectorAll('.tab-btn').forEach(tb => tb.classList.remove('active'));
-            document.getElementById(tabName).classList.add('active');
-            evt.currentTarget.classList.add('active');
-        }
+    @app.route('/logout')
+    @login_required
+    def logout():
+        logout_user()
+        return redirect(url_for('index'))
 
-        // פונקציית תצוגת תוצאות (נקראת מהקובץ החיצוני)
-        window.displayResultsOverride = function(data) {
-            const container = document.getElementById('results-container');
-            const scoreContainer = document.getElementById('reliability-score-container');
-            
-            let score = 0;
-            if (data.base_score_calculated) {
-                score = parseFloat(data.base_score_calculated);
-            } else {
-                const scoreMatch = JSON.stringify(data).match(/ציון.*?(\d{1,3})/);
-                if (scoreMatch && scoreMatch[1]) score = parseInt(scoreMatch[1]);
-            }
-            score = Math.round(score);
+    # Legal pages
+    @app.route('/privacy')
+    def privacy():
+        return render_template('privacy.html', user=current_user)
 
-            let scoreColor = 'bg-warning', scoreText = 'אמינות בינונית';
-            if (score >= 80) { scoreColor = 'bg-success'; scoreText = 'רכב אמין מאוד 🏆'; }
-            else if (score >= 70) { scoreColor = 'bg-primary'; scoreText = 'רכב אמין ✅'; }
-            else if (score > 0 && score <= 50) { scoreColor = 'bg-danger'; scoreText = 'פוטנציאל לאמינות נמוכה ⚠️'; }
-            else if (score === 0) { scoreColor = 'bg-slate-500'; scoreText = 'ציון לא זמין'; }
+    @app.route('/terms')
+    def terms():
+        return render_template('terms.html', user=current_user)
 
-            scoreContainer.innerHTML = `
-                <div class="score-circle ${scoreColor} mb-4">
-                    <span class="text-5xl">${score > 0 ? score : '?'}</span>
-                    <span class="text-sm opacity-80">מתוך 100</span>
-                </div>
-                <h3 class="text-2xl font-bold ${scoreColor.replace('bg-', 'text-')}">${scoreText}</h3>
-            `;
+    @app.route('/dashboard')
+    @login_required
+    def dashboard():
+        try:
+            user_searches = SearchHistory.query.filter_by(
+                user_id=current_user.id
+            ).order_by(SearchHistory.timestamp.desc()).all()
+            searches_data = []
+            for s in user_searches:
+                searches_data.append({
+                    "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
+                    "make": s.make, "model": s.model, "year": s.year,
+                    "data": json.loads(s.result_json)
+                })
+            return render_template('dashboard.html', searches=searches_data, user=current_user)
+        except Exception as e:
+            print(f"[DASH] ❌ {e}")
+            return redirect(url_for('index'))
 
-            if (data.reliability_summary) {
-                document.getElementById('summary').innerHTML = marked.parse(data.reliability_summary);
-            } else if (data.response) {
-                 document.getElementById('summary').innerHTML = marked.parse(data.response);
-            }
+    @app.route('/analyze', methods=['POST'])
+    @login_required
+    def analyze_car():
+        # 0) Input
+        try:
+            data = request.json
+            print(f"[ANALYZE 0/6] user={current_user.id} payload: {data}")
+            final_make = normalize_text(data.get('make'))
+            final_model = normalize_text(data.get('model'))
+            final_sub_model = normalize_text(data.get('sub_model'))
+            final_year = int(data.get('year')) if data.get('year') else None
+            final_mileage = str(data.get('mileage_range'))
+            final_fuel = str(data.get('fuel_type'))
+            final_trans = str(data.get('transmission'))
+            if not (final_make and final_model and final_year):
+                return jsonify({"error": "שגיאת קלט (שלב 0): נא למלא יצרן, דגם ושנה."}), 400
+        except Exception as e:
+            return jsonify({"error": f"שגיאת קלט (שלב 0): {str(e)}"}), 400
 
-            if (data.common_issues && Array.isArray(data.common_issues)) {
-                let faultsHtml = '<ul class="list-disc pr-5 space-y-2">';
-                data.common_issues.forEach(issue => faultsHtml += `<li>${issue}</li>`);
-                faultsHtml += '</ul>';
-                if (data.issues_with_costs && Array.isArray(data.issues_with_costs)) {
-                    faultsHtml += '<h4 class="text-xl font-bold mt-6 mb-3">עלויות תיקון משוערות:</h4><ul class="space-y-3">';
-                    data.issues_with_costs.forEach(item => {
-                        faultsHtml += `<li class="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center"><span>${item.issue}</span><span class="font-bold text-primary">${item.avg_cost_ILS} ₪</span></li>`;
-                    });
-                    faultsHtml += '</ul>';
-                }
-                document.getElementById('faults').innerHTML = faultsHtml;
-            }
+        # 1) User quota
+        try:
+            today_start = datetime.combine(datetime.today().date(), time.min)
+            today_end = datetime.combine(datetime.today().date(), time.max)
+            user_searches_today = SearchHistory.query.filter(
+                SearchHistory.user_id == current_user.id,
+                SearchHistory.timestamp >= today_start,
+                SearchHistory.timestamp <= today_end
+            ).count()
+            if user_searches_today >= USER_DAILY_LIMIT:
+                return jsonify({"error": f"שגיאת מגבלה (שלב 1): ניצלת את {USER_DAILY_LIMIT} החיפושים היומיים שלך. נסה שוב מחר."}), 429
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({"error": f"שגיאת שרת (שלב 1): {str(e)}"}), 500
 
-            if (data.avg_repair_cost_ILS) {
-                document.getElementById('costs').innerHTML = `
-                    <h4 class="text-xl font-bold mb-3">עלות תחזוקה שנתית ממוצעת:</h4>
-                    <p class="text-3xl font-black text-primary mb-6">${data.avg_repair_cost_ILS} ₪</p>
-                    ${data.maintenance_cost_score ? `<p>ציון עלויות אחזקה: <strong>${data.maintenance_cost_score}/10</strong></p>` : ''}
-                `;
-            }
+        # 2–3) Cache
+        try:
+            cutoff_date = datetime.now() - timedelta(days=MAX_CACHE_DAYS)
+            cached = SearchHistory.query.filter(
+                SearchHistory.make == final_make,
+                SearchHistory.model == final_model,
+                SearchHistory.year == final_year,
+                SearchHistory.mileage_range == final_mileage,
+                SearchHistory.fuel_type == final_fuel,
+                SearchHistory.transmission == final_trans,
+                SearchHistory.timestamp >= cutoff_date
+            ).order_by(SearchHistory.timestamp.desc()).first()
+            if cached:
+                result = json.loads(cached.result_json)
+                result['source_tag'] = f"מקור: מטמון DB (נשמר ב-{cached.timestamp.strftime('%Y-%m-%d')})"
+                return jsonify(result)
+        except Exception as e:
+            print(f"[CACHE] ⚠️ {e}")
 
-            if (data.common_competitors_brief && Array.isArray(data.common_competitors_brief)) {
-                let compHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
-                data.common_competitors_brief.forEach(comp => {
-                    compHtml += `<div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700/50"><h5 class="font-bold text-lg mb-2 text-indigo-300">${comp.model}</h5><p class="text-sm opacity-80">${comp.brief_summary}</p></div>`;
-                });
-                compHtml += '</div>';
-                document.getElementById('competitors').innerHTML = compHtml;
-            }
-            
-            container.classList.remove('hidden');
-            container.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    </script>
-    <!-- טעינת הסקריפט הראשי -->
-    <script src="/static/script.js"></script>
-</body>
-</html>
+        # 4) AI call
+        try:
+            prompt = build_prompt(
+                final_make, final_model, final_sub_model, final_year,
+                final_fuel, final_trans, final_mileage
+            )
+            model_output = call_model_with_retry(prompt)
+        except Exception as e:
+            traceback.print_exc()
+            return jsonify({"error": f"שגיאת AI (שלב 4): {str(e)}"}), 500
+
+        # 5) Mileage logic
+        model_output, note = apply_mileage_logic(model_output, final_mileage)
+
+        # 6) Save
+        try:
+            new_log = SearchHistory(
+                user_id=current_user.id,
+                make=final_make, model=final_model, year=final_year,
+                mileage_range=final_mileage, fuel_type=final_fuel,
+                transmission=final_trans,
+                result_json=json.dumps(model_output, ensure_ascii=False)
+            )
+            db.session.add(new_log)
+            db.session.commit()
+        except Exception as e:
+            print(f"[DB] ⚠️ save failed: {e}")
+            db.session.rollback()
+
+        model_output['source_tag'] = f"מקור: ניתוח AI חדש (חיפוש {user_searches_today + 1}/{USER_DAILY_LIMIT})"
+        model_output['mileage_note'] = note
+        model_output['km_warn'] = False
+        return jsonify(model_output)
+
+    @app.cli.command("init-db")
+    def init_db_command():
+        with app.app_context():
+            db.create_all()
+        print("Initialized the database tables.")
+
+    return app
+
+# ===================================================================
+# ===== 5. נקודת כניסה (Gunicorn/Flask) =====
+# ===================================================================
+app = create_app()
+
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5001))
+    app.run(debug=True, port=port)
