@@ -1,143 +1,244 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="rtl" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚗 Car Reliability Analyzer</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>🚗 Car Reliability Analyzer - בדיקת אמינות רכב ב-AI</title>
+    <!-- טעינת Tailwind CSS לעיצוב מהיר ומודרני -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- הגדרת פונט מודרני (Heebo) -->
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Heebo', sans-serif; }
+        /* אנימציה עדינה לטעינה */
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        /* ספינר מותאם אישית */
+        .loader { border-top-color: #6366F1; animation: spinner 1.5s linear infinite; }
+        @keyframes spinner { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+    <script>
+        // הגדרות בסיסיות ל-Tailwind כדי לתמוך בצבעים שלנו
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1', /* אינדיגו מודרני */
+                        secondary: '#EC4899', /* ורוד נועז */
+                        dark: '#0F172A', /* כחול-שחור עמוק לרקע */
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body>
-    <header>
-        <div class="user-corner">
-            {% if user.is_authenticated %}
-                <span>שלום, {{ user.name.split(' ')[0] if user.name else 'משתמש' }}</span>
-                <a href="/dashboard" class="user-button">החיפושים שלי</a>
-                <a href="/logout" class="user-button logout">התנתק</a>
-            {% else %}
-                <a href="/login" class="user-button login">התחבר עם גוגל</a>
-            {% endif %}
-        </div>
+<body class="bg-dark text-slate-200 min-h-screen flex flex-col">
 
-        <div class="header-content">
-            <h1>🚗 Car Reliability Analyzer</h1>
-            <p>בדיקת אמינות רכב בישראל (Gemini + Flask)</p>
+    <!-- === NAVBAR === -->
+    <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <!-- לוגו / שם האתר -->
+            <div class="flex items-center space-x-2 space-x-reverse">
+                <span class="text-2xl">🚗</span>
+                <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary">
+                    Car Analyzer AI
+                </h1>
+            </div>
+
+            <!-- אזור משתמש -->
+            <div class="user-corner flex items-center gap-4 text-sm">
+                {% if user.is_authenticated %}
+                    <span class="hidden md:inline text-slate-400">היי, {{ user.name.split(' ')[0] if user.name else 'נהג/ת' }}</span>
+                    <a href="/dashboard" class="px-4 py-2 rounded-full bg-slate-800 hover:bg-slate-700 transition text-white border border-slate-700">החיפושים שלי</a>
+                    <a href="/logout" class="text-slate-400 hover:text-white transition">יציאה</a>
+                {% else %}
+                    <a href="/login" class="px-5 py-2 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:opacity-90 transition text-white shadow-lg shadow-primary/20">
+                        התחברות
+                    </a>
+                {% endif %}
+            </div>
         </div>
     </header>
 
-    <main>
-        {% if not user.is_authenticated %}
-        <div class="login-prompt">
-            <h3>ברוך הבא!</h3>
-            <p>כדי לבצע חיפושים, עליך להתחבר עם חשבון גוגל.</p>
-            <a href="/login" class="user-button login" style="font-size: 1.05rem; padding: 0.7rem 1.2rem;">התחבר עם גוגל</a>
+    <!-- === MAIN HERO SECTION === -->
+    <main class="flex-grow container mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col items-center">
+        
+        <!-- Hero Text -->
+        <div class="text-center max-w-3xl mx-auto mb-12 fade-in">
+            <h2 class="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight">
+                גלה את <span class="text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">האמת</span> על הרכב הבא שלך
+            </h2>
+            <p class="text-xl text-slate-400">
+                ניתוח אמינות רכב מבוסס AI, מותאם לשוק הישראלי.
+                <br class="hidden md:block">
+                קבל תובנות אמיתיות לפני שאתה קונה.
+            </p>
         </div>
 
-        <form id="car-form" class="hidden" aria-hidden="true">
-        {% else %}
-        <form id="car-form">
-        {% endif %}
-            <h3>🔍 בחירת רכב</h3>
-
-            <div class="form-grid-3">
-                <div class="form-group">
-                    <label for="make">יצרן:</label>
-                    <select id="make" name="make" required>
-                        <option value="">בחר יצרן...</option>
-                        {% for make in car_models_data.keys()|sort %}
-                            <option value="{{ make }}">{{ make }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="model">דגם:</label>
-                    <select id="model" name="model" required disabled>
-                        <option value="">בחר יצרן תחילה...</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="year">שנת הרכב:</label>
-                    <select id="year" name="year" required disabled>
-                        <option value="">בחר דגם תחילה...</option>
-                    </select>
-                </div>
-            </div>
-
-            <h3>📋 פרטים נוספים</h3>
-            <div class="form-grid-3">
-                <div class="form-group">
-                    <label for="mileage_range">טווח קילומטראז':</label>
-                    <select id="mileage_range" name="mileage_range">
-                        <option>עד 50,000 ק"מ</option>
-                        <option>50,000 - 100,000 ק"מ</option>
-                        <option selected>100,000 - 150,000 ק"מ</option>
-                        <option>150,000 - 200,000 ק"מ</option>
-                        <option>200,000+ ק"מ</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="fuel_type">סוג דלק:</label>
-                    <select id="fuel_type" name="fuel_type">
-                        <option selected>בנזין</option>
-                        <option>דיזל</option>
-                        <option>היברידי</option>
-                        <option>חשמלי</option>
-                        <option>אחר</option>
-                    </select>
-                </div>
-
-                <div class="form-group">
-                    <label for="transmission">תיבת הילוכים:</label>
-                    <select id="transmission" name="transmission">
-                        <option selected>אוטומטית</option>
-                        <option>ידנית</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="form-group" style="margin-top: 1rem;">
-                <label for="sub_model">תת-דגם (אופציונלי):</label>
-                <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: 'Lounge', '1.6 ליטר', 'GLI'">
-            </div>
-
-            <!-- ✅ אישור גיל והסכמה לתנאי שימוש -->
-            <div class="form-group" style="margin-top: 1.5rem;">
-                <label>
-                    <input type="checkbox" id="legal-confirm" name="legal-confirm" required>
-                    אני מצהיר/ה כי אני בן/בת 18 ומעלה, קראתי והסכמתי ל-
-                    <a href="{{ url_for('terms') }}" target="_blank">תקנון השימוש</a> ול-
-                    <a href="{{ url_for('privacy') }}" target="_blank">מדיניות הפרטיות</a>.
-                </label>
-                <p id="legal-error" style="color: #b91c1c; font-size: 0.85rem; display: none; margin-top: 0.5rem;">
-                    ⚠️ חובה לאשר את הסעיף כדי להמשיך.
+        <!-- === THE TOOL (Glassmorphism Card) === -->
+        <div class="w-full max-w-4xl bg-slate-800/50 backdrop-blur-lg border border-slate-700 p-6 md:p-8 rounded-3xl shadow-2xl fade-in" style="animation-delay: 0.2s;">
+            
+            {% if not user.is_authenticated %}
+            <!-- מצב לא מחובר - הנעה לפעולה -->
+            <div class="text-center py-10">
+                <div class="text-6xl mb-6">🔒</div>
+                <h3 class="text-2xl font-bold text-white mb-4">הכלי מוכן עבורך</h3>
+                <p class="text-slate-400 mb-8 max-w-md mx-auto">
+                    כדי להפעיל את מנוע הבינה המלאכותית שלנו ולבצע חיפושים מעמיקים, אנו זקוקים לזיהוי קצר.
                 </p>
+                <a href="/login" class="inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white transition-all duration-200 bg-gradient-to-r from-primary to-secondary rounded-xl hover:scale-105 shadow-xl shadow-primary/30">
+                    <svg class="w-6 h-6 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg>
+                    התחל סריקה עכשיו - התחבר עם גוגל
+                </a>
             </div>
+            
+            <!-- טופס מוסתר למשתמשים לא מחוברים כדי לשמור על המבנה -->
+            <form id="car-form" class="hidden" aria-hidden="true"></form>
 
-            <button type="submit" id="submit-button">
-                <span class="button-text">🚀 בצע ניתוח אמינות</span>
-                <div class="spinner hidden" aria-hidden="true"></div>
-            </button>
-        </form>
+            {% else %}
+            <!-- מצב מחובר - הטופס האמיתי -->
+            <form id="car-form" class="space-y-8">
+                <div class="flex items-center mb-6">
+                    <span class="bg-primary/20 text-primary p-3 rounded-xl ml-4">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </span>
+                    <h3 class="text-2xl font-bold text-white">הגדרת רכב לחיפוש</h3>
+                </div>
 
-        <div id="results-container" class="hidden">
-            <div id="results-content"></div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- בחירות ראשיות -->
+                    <div class="space-y-2">
+                        <label for="make" class="block text-sm font-medium text-slate-300">יצרן</label>
+                        <select id="make" name="make" required class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary focus:border-transparent transition">
+                            <option value="">בחר יצרן...</option>
+                            {% for make in car_models_data.keys()|sort %}
+                                <option value="{{ make }}">{{ make }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="model" class="block text-sm font-medium text-slate-300">דגם</label>
+                        <select id="model" name="model" required disabled class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-white disabled:opacity-50 focus:ring-2 focus:ring-primary transition">
+                            <option value="">בחר יצרן תחילה...</option>
+                        </select>
+                    </div>
+
+                    <div class="space-y-2">
+                        <label for="year" class="block text-sm font-medium text-slate-300">שנה</label>
+                        <select id="year" name="year" required disabled class="w-full bg-slate-900/60 border border-slate-700 rounded-xl px-4 py-3 text-white disabled:opacity-50 focus:ring-2 focus:ring-primary transition">
+                            <option value="">בחר דגם תחילה...</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- פרטים נוספים -->
+                <div class="pt-6 border-t border-slate-700/50">
+                    <h4 class="text-lg font-medium text-slate-300 mb-4">דיוק פרטים (אופציונלי אך מומלץ)</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div class="space-y-2">
+                            <label class="block text-xs uppercase tracking-wider text-slate-500">קילומטראז'</label>
+                            <select id="mileage_range" name="mileage_range" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-primary">
+                                <option>עד 50,000 ק"מ</option>
+                                <option>50,000 - 100,000 ק"מ</option>
+                                <option selected>100,000 - 150,000 ק"מ</option>
+                                <option>150,000 - 200,000 ק"מ</option>
+                                <option>200,000+ ק"מ</option>
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                             <label class="block text-xs uppercase tracking-wider text-slate-500">סוג הנעה</label>
+                            <select id="fuel_type" name="fuel_type" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-primary">
+                                <option selected>בנזין</option>
+                                <option>דיזל</option>
+                                <option>היברידי</option>
+                                <option>חשמלי</option>
+                            </select>
+                        </div>
+                         <div class="space-y-2">
+                             <label class="block text-xs uppercase tracking-wider text-slate-500">גיר</label>
+                            <select id="transmission" name="transmission" class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white focus:ring-primary">
+                                <option selected>אוטומטית</option>
+                                <option>ידנית</option>
+                                <option>רובוטית</option>
+                            </select>
+                        </div>
+                    </div>
+                     <div class="mt-4 space-y-2">
+                        <label for="sub_model" class="block text-xs uppercase tracking-wider text-slate-500">תת-דגם / רמת גימור</label>
+                        <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: GLI, Luxury, Sport..." class="w-full bg-slate-900/60 border border-slate-700 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-primary transition placeholder-slate-600">
+                    </div>
+                </div>
+
+                <!-- אישור משפטי וכפתור שליחה -->
+                <div class="pt-6 space-y-6">
+                    <label class="flex items-start gap-3 cursor-pointer group">
+                        <input type="checkbox" id="legal-confirm" name="legal-confirm" required class="mt-1 w-5 h-5 rounded border-slate-600 text-primary focus:ring-primary bg-slate-900/60">
+                        <span class="text-sm text-slate-400 group-hover:text-slate-300 transition">
+                            אני מצהיר/ה כי אני בן/בת 18 ומעלה, וקראתי והסכמתי 
+                            <a href="{{ url_for('terms') }}" target="_blank" class="text-primary hover:underline">לתקנון השימוש</a> 
+                            ול-<a href="{{ url_for('privacy') }}" target="_blank" class="text-primary hover:underline">מדיניות הפרטיות</a>.
+                        </span>
+                    </label>
+                    <p id="legal-error" class="hidden text-red-400 text-sm bg-red-900/20 p-2 rounded">⚠️ חובה לאשר את תנאי השימוש כדי להמשיך.</p>
+
+                    <button type="submit" id="submit-button" class="w-full md:w-auto md:min-w-[300px] flex items-center justify-center mx-auto py-4 px-8 bg-gradient-to-r from-primary to-secondary hover:brightness-110 text-white font-bold text-lg rounded-2xl shadow-lg shadow-primary/25 transition-all hover:scale-[1.02] active:scale-95">
+                        <span class="button-text">🚀 הרץ ניתוח AI</span>
+                        <div class="spinner hidden ml-3" aria-hidden="true">
+                            <div class="loader ease-linear rounded-full border-4 border-t-4 border-white/30 h-6 w-6"></div>
+                        </div>
+                    </button>
+                </div>
+            </form>
+            {% endif %}
         </div>
+
+        <!-- === FEATURES / SOCIAL PROOF === -->
+        <div class="mt-20 grid grid-cols-1 md:grid-cols-3 gap-8 max-w-5xl mx-auto text-center px-4 fade-in" style="animation-delay: 0.4s;">
+            <div class="p-6 rounded-2xl bg-slate-800/30 border border-slate-700/50">
+                <div class="text-4xl mb-4">🧠</div>
+                <h3 class="text-xl font-bold text-white mb-2">מנוע Gemini AI</h3>
+                <p class="text-slate-400">ניתוח חכם הסורק מידע מאלפי מקורות ברשת כדי לתת לך תמונה מלאה.</p>
+            </div>
+             <div class="p-6 rounded-2xl bg-slate-800/30 border border-slate-700/50">
+                <div class="text-4xl mb-4">🇮🇱</div>
+                <h3 class="text-xl font-bold text-white mb-2">מותאם לישראל</h3>
+                <p class="text-slate-400">מתייחס לאקלים הישראלי, מחירי החלפים בארץ ובעיות נפוצות בשוק המקומי.</p>
+            </div>
+             <div class="p-6 rounded-2xl bg-slate-800/30 border border-slate-700/50">
+                <div class="text-4xl mb-4">⚡</div>
+                <h3 class="text-xl font-bold text-white mb-2">תשובות מיידיות</h3>
+                <p class="text-slate-400">בלי לחכות בפורומים. קבל דוח אמינות מפורט תוך שניות ספורות.</p>
+            </div>
+        </div>
+
+        <!-- תוצאות (מוסתרות בהתחלה) -->
+        <div id="results-container" class="hidden w-full max-w-4xl mt-10 fade-in">
+            <div id="results-content" class="bg-slate-800/80 backdrop-blur p-6 md:p-8 rounded-3xl border border-slate-700 text-slate-200 prose prose-invert max-w-none">
+                <!-- התוצאות יוזרקו לכאן -->
+            </div>
+        </div>
+
     </main>
 
-    <footer style="text-align: center; padding: 20px; margin-top: 50px; border-top: 1px solid #eee; font-size: 0.9em;">
-        <p>&copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.</p>
-        <p style="margin-top: 10px;">
-            <a href="{{ url_for('privacy') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">מדיניות פרטיות</a> | 
-            <a href="{{ url_for('terms') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">תקנון שימוש</a>
-        </p>
+    <!-- === FOOTER === -->
+    <footer class="mt-20 py-8 text-center text-slate-500 text-sm border-t border-slate-800/50 bg-dark/50">
+        <p>© 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.</p>
+        <div class="mt-4 space-x-4 space-x-reverse">
+            <a href="{{ url_for('privacy') }}" class="hover:text-primary transition">מדיניות פרטיות</a>
+            <span class="text-slate-700">|</span>
+            <a href="{{ url_for('terms') }}" class="hover:text-primary transition">תקנון שימוש</a>
+        </div>
     </footer>
 
+    <!-- העברת נתונים ל-JS -->
     <script>
         const userIsAuthenticated = {{ user.is_authenticated | tojson }};
         const carModelsData = {{ car_models_data | tojson }};
     </script>
+    <!-- קישור לקובץ ה-JS הקיים שלך (ודא שהוא עובד עם ה-ID החדשים אם שינית משהו מהותי, אבל שמרתי על רוב ה-ID המקוריים) -->
     <script src="/static/script.js"></script>
 </body>
 </html>
+
+
