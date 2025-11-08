@@ -25,6 +25,9 @@
     .modal{ width:min(100%,900px); border-radius:1.75rem; border:1px solid rgba(51,65,85,.5); background:rgba(15,23,42,.96) }
     /* Scrollbar */
     ::-webkit-scrollbar{ width:10px } ::-webkit-scrollbar-track{ background:#1e293b } ::-webkit-scrollbar-thumb{ background:#475569; border-radius:5px } ::-webkit-scrollbar-thumb:hover{ background:#64748b }
+    /* Tabs */
+    .tab-btn{ padding:.5rem 1rem; font-weight:700; font-size:.9rem; border-bottom:2px solid transparent; color:#cbd5e1 }
+    .tab-btn.active{ color:#818cf8; border-color:#6366F1; background:rgba(99,102,241,.10) }
   </style>
 
   <script>
@@ -68,6 +71,7 @@
     {% if searches and searches|length > 0 %}
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 fade-in">
         {% for s in searches %}
+          {% set base_score = (s.data.base_score_calculated if s.data and 'base_score_calculated' in s.data else None) %}
           <div class="card p-6 backdrop">
             <div class="flex items-start justify-between gap-4">
               <div>
@@ -76,7 +80,6 @@
                 </h3>
                 <div class="mt-1 text-sm text-slate-400">{{ s.timestamp }}</div>
               </div>
-              {% set base_score = (s.data.base_score_calculated if s.data and 'base_score_calculated' in s.data else None) %}
               <div class="flex flex-col items-center">
                 <div class="rounded-xl px-3 py-1 chip text-sm font-semibold text-indigo-300">ציון</div>
                 <div class="mt-2 text-3xl font-black {{ 'text-primary' if base_score and base_score|float >= 70 else 'text-slate-200' }}">
@@ -94,9 +97,7 @@
             <p class="mt-4 text-slate-300 line-clamp-3">
               {% if s.data and s.data.reliability_summary %}
                 {{ s.data.reliability_summary[:180] }}{% if s.data.reliability_summary|length > 180 %}…{% endif %}
-              {% else %}
-                אין סיכום זמין לתצוגה מקדימה.
-              {% endif %}
+              {% else %}אין סיכום זמין לתצוגה מקדימה.{% endif %}
             </p>
 
             <div class="mt-6 flex items-center justify-between">
@@ -147,21 +148,19 @@
       </div>
 
       <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto">
-        <!-- צד שמאל: כותרת + ציון -->
+        <!-- צד שמאל -->
         <div class="lg:col-span-1 space-y-4">
           <div class="card p-5">
             <div class="text-sm text-slate-400" id="meta-time">—</div>
             <h5 class="text-2xl font-black text-white" id="meta-title">—</h5>
             <div class="mt-4 flex flex-wrap gap-2 text-xs" id="meta-chips"></div>
           </div>
-
           <div class="card p-5">
             <div class="text-sm font-semibold text-indigo-300 mb-2">ציון אמינות</div>
             <div class="text-5xl font-black" id="score-box">—</div>
           </div>
         </div>
-
-        <!-- צד ימין: טאבים ותוכן -->
+        <!-- צד ימין -->
         <div class="lg:col-span-2 space-y-6">
           <div class="flex flex-wrap border-b border-slate-700 overflow-x-auto">
             <button class="tab-btn active" data-tab="summary">📄 סיכום</button>
@@ -170,7 +169,6 @@
             <button class="tab-btn" data-tab="competitors">🆚 מתחרים</button>
             <button class="tab-btn" data-tab="sources">🔗 מקורות</button>
           </div>
-
           <div id="tab-summary" class="prose prose-invert max-w-none"></div>
           <div id="tab-faults" class="prose prose-invert max-w-none hidden"></div>
           <div id="tab-costs" class="prose prose-invert max-w-none hidden"></div>
@@ -186,9 +184,10 @@
     </div>
   </div>
 
+  {# עוטפים את ה-JS ב-raw כדי ש-Jinja לא ינסה לפרש {{ }} אם יופיעו בתוך קוד/תגובות #}
   {% raw %}
   <script>
-    // עזרה: הפעלת טאב בתוך המודאל
+    // החלפת טאבים במודאל
     function switchTab(tabName) {
       const ids = ["summary","faults","costs","competitors","sources"];
       ids.forEach(n => {
@@ -205,61 +204,65 @@
     closeButtons.forEach(btn => btn.addEventListener('click', () => mask.style.display = 'none'));
     mask.addEventListener('click', (e) => { if (e.target === mask) mask.style.display = 'none'; });
 
-    // לחצני טאב
+    // הפעלת טאבים
     document.addEventListener('click', (e) => {
-      if (e.target.classList.contains('tab-btn')) {
+      const t = e.target;
+      if (t.classList && t.classList.contains('tab-btn')) {
         e.preventDefault();
-        switchTab(e.target.dataset.tab);
+        switchTab(t.dataset.tab);
       }
     });
 
-    // הצג פרטים (Fetch ל־/search-details/<id>)
+    // עוזר: רינדור Markdown בטוח
+    const md = (t) => t ? marked.parse(String(t)) : '<p class="text-slate-400">—</p>';
+
+    // האזנה לכפתורי "הצג פרטים"
     document.querySelectorAll('.show-details').forEach(btn => {
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         try {
           const res = await fetch(`/search-details/${id}`);
           if (!res.ok) throw new Error('שגיאה בשליפת פרטים');
-          const { meta, data } = await res.json();
+          const payload = await res.json();
+          const meta = payload.meta || {};
+          const data = payload.data || {};
 
-          // כותרות ומטה
+          // מטא
           document.getElementById('meta-time').textContent = meta.timestamp || '—';
           document.getElementById('meta-title').textContent =
             `${(meta.make||'').toUpperCase()} ${(meta.model||'').toUpperCase()} (${meta.year||'—'})`;
 
           const chips = [];
           if (meta.mileage_range) chips.push(`ק״מ: ${meta.mileage_range}`);
-          if (meta.fuel_type) chips.push(`דלק: ${meta.fuel_type}`);
+          if (meta.fuel_type)    chips.push(`דלק: ${meta.fuel_type}`);
           if (meta.transmission) chips.push(`גיר: ${meta.transmission}`);
           document.getElementById('meta-chips').innerHTML =
             chips.map(c => `<span class="chip px-3 py-1 rounded-full text-indigo-300">${c}</span>`).join(' ');
 
           // ציון
           let score = 0;
-          if (data && typeof data.base_score_calculated !== 'undefined') {
+          if (typeof data.base_score_calculated !== 'undefined') {
             score = Number(data.base_score_calculated) || 0;
           }
           document.getElementById('score-box').textContent = (score > 0 ? Math.round(score) : '—');
 
-          // טאבים: רינדור תכנים
-          const md = (t) => t ? marked.parse(String(t)) : '<p class="text-slate-400">—</p>';
-
+          // תוכן טאבים
           // סיכום
-          const summary = data?.reliability_summary || data?.response || '—';
+          const summary = data.reliability_summary || data.response || '—';
           document.getElementById('tab-summary').innerHTML = md(summary);
 
           // תקלות
           let faultsHtml = '';
-          if (Array.isArray(data?.common_issues) && data.common_issues.length) {
+          if (Array.isArray(data.common_issues) && data.common_issues.length) {
             faultsHtml += '<ul class="list-disc pr-5 space-y-2">';
             data.common_issues.forEach(i => faultsHtml += `<li>${i}</li>`);
             faultsHtml += '</ul>';
           }
-          if (Array.isArray(data?.issues_with_costs) && data.issues_with_costs.length) {
+          if (Array.isArray(data.issues_with_costs) && data.issues_with_costs.length) {
             faultsHtml += '<h4 class="text-xl font-bold mt-6 mb-3">עלויות תיקון משוערות:</h4><ul class="space-y-3">';
             data.issues_with_costs.forEach(item => {
-              const cost = item?.avg_cost_ILS ?? '—';
-              const issue = item?.issue ?? '—';
+              const cost = (item && item.avg_cost_ILS != null) ? item.avg_cost_ILS : '—';
+              const issue = (item && item.issue) ? item.issue : '—';
               faultsHtml += `<li class="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center"><span>${issue}</span><span class="font-bold text-primary">${cost} ₪</span></li>`;
             });
             faultsHtml += '</ul>';
@@ -268,20 +271,57 @@
 
           // עלויות
           let costsHtml = '';
-          if (data?.avg_repair_cost_ILS) {
+          if (data.avg_repair_cost_ILS) {
             costsHtml += `<h4 class="text-xl font-bold mb-3">עלות תחזוקה שנתית ממוצעת:</h4>
                           <p class="text-3xl font-black text-primary mb-6">${data.avg_repair_cost_ILS} ₪</p>`;
           }
-          if (data?.maintenance_cost_score) {
+          if (data.maintenance_cost_score) {
             costsHtml += `<p>ציון עלויות אחזקה: <strong>${data.maintenance_cost_score}/10</strong></p>`;
           }
           document.getElementById('tab-costs').innerHTML = costsHtml || '<p class="text-slate-400">—</p>';
 
           // מתחרים
           let compHtml = '';
-          if (Array.isArray(data?.common_competitors_brief) && data.common_competitors_brief.length) {
+          if (Array.isArray(data.common_competitors_brief) && data.common_competitors_brief.length) {
             compHtml += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
             data.common_competitors_brief.forEach(c => {
-              const m = c?.model ?? '—';
-              const b = c?.brief_summary ?? '';
-              compHtml += `<div class
+              const m = (c && c.model) ? c.model : '—';
+              const b = (c && c.brief_summary) ? c.brief_summary : '';
+              compHtml += `<div class="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
+                            <div class="font-bold text-white mb-1">${m}</div>
+                            <div class="text-slate-300 text-sm">${b}</div>
+                          </div>`;
+            });
+            compHtml += '</div>';
+          }
+          document.getElementById('tab-competitors').innerHTML = compHtml || '<p class="text-slate-400">—</p>';
+
+          // מקורות
+          let srcHtml = '';
+          if (Array.isArray(data.sources) && data.sources.length) {
+            srcHtml += '<ul class="list-disc pr-5 space-y-2">';
+            data.sources.forEach(s => {
+              const txt = String(s || '').trim();
+              if (/^https?:\/\//i.test(txt)) {
+                srcHtml += `<li><a class="text-primary underline underline-offset-4" href="${txt}" target="_blank" rel="noopener">קישור</a></li>`;
+              } else {
+                srcHtml += `<li>${txt}</li>`;
+              }
+            });
+            srcHtml += '</ul>';
+          }
+          document.getElementById('tab-sources').innerHTML = srcHtml || '<p class="text-slate-400">—</p>';
+
+          // הצג מודאל
+          switchTab('summary');
+          mask.style.display = 'flex';
+        } catch (err) {
+          alert('שגיאה בטעינת הפרטים. נסה שוב מאוחר יותר.');
+          console.error(err);
+        }
+      });
+    });
+  </script>
+  {% endraw %}
+</body>
+</html>
