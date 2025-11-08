@@ -1,373 +1,509 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl" class="scroll-smooth">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚗 Car Reliability Analyzer - בדיקת אמינות רכב ב-AI</title>
-    
-    <!-- טעינת Tailwind CSS בגרסה יציבה -->
-    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
-    
-    <!-- פונט Heebo -->
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>🚗 Car Reliability Analyzer - בדיקת אמינות רכב ב-AI</title>
 
-    <style>
-        /* סגנונות בסיס קריטיים - נטענים מיידית */
-        :root { --bg-dark: #0F172A; --text-light: #E2E8F0; }
-        body {
-            font-family: 'Heebo', system-ui, -apple-system, sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-light);
-            margin: 0;
-            overflow-x: hidden; /* מניעת גלילה רוחבית מיותרת */
+  <!-- TailwindCSS יציב -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+
+  <!-- Heebo -->
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
+
+  <style>
+    :root { --bg-dark:#0F172A; --text-light:#E2E8F0; }
+    body {
+      font-family:'Heebo',system-ui,-apple-system,sans-serif;
+      background-color:var(--bg-dark);
+      color:var(--text-light);
+      margin:0;
+      overflow-x:hidden;
+    }
+    .fade-in { animation:fadeIn .6s cubic-bezier(.4,0,.2,1) forwards; opacity:0; }
+    @keyframes fadeIn { from{opacity:0;transform:translateY(20px)} to{opacity:1;transform:translateY(0)} }
+    .loader {
+      border:3px solid rgba(255,255,255,.2);
+      border-top-color:#6366F1; border-radius:50%;
+      width:1.5rem;height:1.5rem; animation:spin 1s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg) } }
+    ::-webkit-scrollbar{width:10px}
+    ::-webkit-scrollbar-track{background:#1e293b}
+    ::-webkit-scrollbar-thumb{background:#475569;border-radius:5px}
+    ::-webkit-scrollbar-thumb:hover{background:#64748b}
+  </style>
+
+  <script>
+    /* Tailwind config */
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            primary: { DEFAULT:'#6366F1', 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' },
+            secondary: { DEFAULT:'#EC4899', 50:'#fdf2f8',100:'#fce7f3',200:'#fbcfe8',300:'#f9a8d4',400:'#f472b6',500:'#ec4899',600:'#db2777',700:'#be185d',800:'#9d174d',900:'#831843' },
+            dark:'#0F172A', 'dark-lighter':'#1E293B'
+          },
+          boxShadow: { neon:'0 0 20px rgba(99,102,241,.4)' }
         }
-        /* אנימציות */
-        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .delay-100 { animation-delay: 100ms; }
-        .delay-200 { animation-delay: 200ms; }
-        .delay-300 { animation-delay: 300ms; }
-
-        /* ספינר */
-        .loader {
-            border: 3px solid rgba(255,255,255,0.2);
-            border-top-color: #6366F1;
-            border-radius: 50%;
-            width: 1.5rem;
-            height: 1.5rem;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        /* שיפורי גלילה */
-        ::-webkit-scrollbar { width: 10px; }
-        ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
-    </style>
-
-    <script>
-        // קונפיגורציה של Tailwind - מוגדרת לפני הטעינה המלאה
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        primary: { DEFAULT: '#6366F1', 50: '#eef2ff', 100: '#e0e7ff', 200: '#c7d2fe', 300: '#a5b4fc', 400: '#818cf8', 500: '#6366f1', 600: '#4f46e5', 700: '#4338ca', 800: '#3730a3', 900: '#312e81' },
-                        secondary: { DEFAULT: '#EC4899', 50: '#fdf2f8', 100: '#fce7f3', 200: '#fbcfe8', 300: '#f9a8d4', 400: '#f472b6', 500: '#ec4899', 600: '#db2777', 700: '#be185d', 800: '#9d174d', 900: '#831843' },
-                        dark: '#0F172A',
-                        'dark-lighter': '#1E293B',
-                    },
-                    boxShadow: {
-                        'neon': '0 0 20px rgba(99, 102, 241, 0.4)',
-                    }
-                }
-            }
-        }
-    </script>
+      }
+    }
+  </script>
 </head>
+
 <body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased selection:bg-primary/30 selection:text-white">
 
-    <!-- === NAVBAR === -->
-    <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <!-- לוגו -->
-            <a href="/" class="flex items-center space-x-2 space-x-reverse group transition duration-300">
-                <span class="text-3xl filter drop-shadow-lg group-hover:scale-110 transition-transform">🚗</span>
-                <h1 class="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
-                    CarAnalyzer.AI
-                </h1>
-            </a>
+  <!-- NAVBAR -->
+  <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <a href="/" class="flex items-center space-x-2 space-x-reverse group transition duration-300">
+        <span class="text-3xl filter drop-shadow-lg group-hover:scale-110 transition-transform">🚗</span>
+        <h1 class="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
+          CarAnalyzer.AI
+        </h1>
+      </a>
 
-            <!-- אזור משתמש -->
-            <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
-                {% if user and user.is_authenticated %}
-                    <div class="hidden md:flex items-center gap-2 text-slate-400">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
-                        <span>{{ user.name.split(' ')[0] if user.name else 'אורח' }}</span>
-                    </div>
-                    <a href="/dashboard" class="relative px-5 py-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/50 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
-                        החיפושים שלי
-                         <span class="absolute -top-1 -right-1 flex h-3 w-3">
-                          <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
-                          <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
-                        </span>
-                    </a>
-                    <a href="/logout" class="hidden sm:inline-block text-slate-400 hover:text-white transition-colors">התנתק</a>
-                {% else %}
-                    <a href="/login" class="px-6 py-2.5 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0">
-                        התחברות
-                    </a>
-                {% endif %}
-            </div>
-        </div>
-    </header>
-
-    <!-- === MAIN HERO === -->
-    <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col items-center overflow-hidden">
-        
-        <!-- רקע דקורטיבי -->
-        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none" style="background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, rgba(15,23,42,0) 70%);"></div>
-
-        <!-- Hero Text -->
-        <div class="relative z-10 text-center max-w-4xl mx-auto mb-16 fade-in">
-            <span class="inline-block py-1 px-3 rounded-full bg-slate-800/50 border border-slate-700 text-primary text-sm font-semibold mb-5">
-                ✨ מנוע AI חדש: גרסה 2.0 זמינה כעת
+      <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
+        {% if current_user.is_authenticated %}
+          <div class="hidden md:flex items-center gap-2 text-slate-400">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+            <span>{{ current_user.name.split(' ')[0] if current_user.name else 'אורח' }}</span>
+          </div>
+          <a href="/dashboard" class="relative px-5 py-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/50 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+            החיפושים שלי
+            <span class="absolute -top-1 -right-1 flex h-3 w-3">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-3 w-3 bg-primary"></span>
             </span>
-            <h2 class="text-5xl md:text-7xl font-extrabold text-white mb-8 leading-tight tracking-tight">
-                אל תקנה רכב לפני שתדע את <span class="relative inline-block">
-                    <span class="absolute inset-0 bg-gradient-to-r from-primary to-secondary blur-2xl opacity-30"></span>
-                    <span class="relative text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">האמת המלאה</span>
-                </span>
-            </h2>
-            <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
-                ניתוח אמינות מעמיק המבוסס על מיליוני נתונים, מותאם במיוחד לשוק הרכב הישראלי ולתנאי הארץ.
-            </p>
+          </a>
+          <a href="/logout" class="hidden sm:inline-block text-slate-400 hover:text-white transition-colors">התנתק</a>
+        {% else %}
+          <a href="/login" class="px-6 py-2.5 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0">
+            התחברות
+          </a>
+        {% endif %}
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col items-center overflow-hidden">
+    <!-- Background halo -->
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none"
+         style="background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, rgba(15,23,42,0) 70%);"></div>
+
+    <!-- Hero -->
+    <div class="relative z-10 text-center max-w-4xl mx-auto mb-16 fade-in">
+      <span class="inline-block py-1 px-3 rounded-full bg-slate-800/50 border border-slate-700 text-primary text-sm font-semibold mb-5">
+        ✨ מנוע AI חדש: גרסה 2.0 זמינה כעת
+      </span>
+      <h2 class="text-5xl md:text-7xl font-extrabold text-white mb-8 leading-tight tracking-tight">
+        אל תקנה רכב לפני שתדע את
+        <span class="relative inline-block">
+          <span class="absolute inset-0 bg-gradient-to-r from-primary to-secondary blur-2xl opacity-30"></span>
+          <span class="relative text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">האמת המלאה</span>
+        </span>
+      </h2>
+      <p class="text-xl md:text-2xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        ניתוח אמינות מעמיק המבוסס על מיליוני נתונים, מותאם במיוחד לשוק הרכב הישראלי ולתנאי הארץ.
+      </p>
+    </div>
+
+    <!-- Tool Card -->
+    <div class="relative z-10 w-full max-w-4xl bg-dark-lighter/60 backdrop-blur-xl border border-slate-700/50 p-8 md:p-12 rounded-[2.5rem] shadow-2xl fade-in delay-100">
+      <div class="absolute inset-0 rounded-[2.5rem] border-2 border-transparent bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 pointer-events-none"
+           style="mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);"></div>
+
+      {% if current_user.is_authenticated %}
+      <!-- Logged-in form -->
+      <form id="car-form" class="space-y-10">
+        <div class="flex items-center space-x-4 space-x-reverse border-b border-slate-700/50 pb-6">
+          <div class="bg-gradient-to-br from-primary to-secondary p-3 rounded-2xl shadow-lg">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"/></svg>
+          </div>
+          <div>
+            <h3 class="text-2xl font-bold text-white">מפרט הרכב לבדיקה</h3>
+            <p class="text-slate-400 text-sm">אנא מלא את הפרטים המדויקים ביותר לקבלת תוצאה מיטבית</p>
+          </div>
         </div>
 
-        <!-- === THE TOOL CARD === -->
-        <div class="relative z-10 w-full max-w-4xl bg-dark-lighter/60 backdrop-blur-xl border border-slate-700/50 p-8 md:p-12 rounded-[2.5rem] shadow-2xl fade-in delay-100">
-            
-            <!-- גבול זוהר עדין -->
-            <div class="absolute inset-0 rounded-[2.5rem] border-2 border-transparent bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 pointer-events-none" style="mask: linear-gradient(#fff 0 0) padding-box, linear-gradient(#fff 0 0);"></div>
-
-            {% if user and user.is_authenticated %}
-            <!-- מצב מחובר -->
-            <form id="car-form" class="space-y-10">
-                <div class="flex items-center space-x-4 space-x-reverse border-b border-slate-700/50 pb-6">
-                    <div class="bg-gradient-to-br from-primary to-secondary p-3 rounded-2xl shadow-lg">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
-                    </div>
-                    <div>
-                        <h3 class="text-2xl font-bold text-white">מפרט הרכב לבדיקה</h3>
-                        <p class="text-slate-400 text-sm">אנא מלא את הפרטים המדויקים ביותר לקבלת תוצאה מיטבית</p>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                    <div class="group space-y-3">
-                        <label for="make" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
-                             יצרן <span class="text-secondary mr-1">*</span>
-                        </label>
-                        <div class="relative">
-                            <select id="make" name="make" required class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all hover:border-slate-600 cursor-pointer">
-                                <option value="">בחר יצרן מהרשימה...</option>
-                                {% if car_models_data %}
-                                    {% for make in car_models_data.keys()|sort %}
-                                        <option value="{{ make }}">{{ make }}</option>
-                                    {% endfor %}
-                                {% else %}
-                                    <!-- נתונים לדוגמה במקרה שאין חיבור לשרת -->
-                                    <option value="Toyota">Toyota</option>
-                                    <option value="Mazda">Mazda</option>
-                                    <option value="Hyundai">Hyundai</option>
-                                {% endif %}
-                            </select>
-                            <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-primary transition-colors">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="group space-y-3">
-                        <label for="model" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
-                            דגם <span class="text-secondary mr-1">*</span>
-                        </label>
-                        <div class="relative">
-                            <select id="model" name="model" required disabled class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">-- קודם בחר יצרן --</option>
-                            </select>
-                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="group space-y-3">
-                        <label for="year" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
-                            שנתון <span class="text-secondary mr-1">*</span>
-                        </label>
-                        <div class="relative">
-                            <select id="year" name="year" required disabled class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                                <option value="">-- קודם בחר דגם --</option>
-                            </select>
-                             <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd" /></svg>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50 space-y-6">
-                    <h4 class="text-lg font-bold text-white flex items-center">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-primary" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd" /></svg>
-                        דיוק נתונים (אופציונלי)
-                    </h4>
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">מד אוץ (ק"מ)</label>
-                            <select id="mileage_range" name="mileage_range" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
-                                <option>עד 50,000 ק"מ</option>
-                                <option>50,000 - 100,000 ק"מ</option>
-                                <option selected>100,000 - 150,000 ק"מ</option>
-                                <option>150,000 - 200,000 ק"מ</option>
-                                <option>מעל 200,000 ק"מ</option>
-                            </select>
-                        </div>
-                        <div class="space-y-2">
-                             <label class="text-xs font-bold uppercase tracking-wider text-slate-400">סוג מנוע</label>
-                            <select id="fuel_type" name="fuel_type" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
-                                <option selected>בנזין</option>
-                                <option>דיזל</option>
-                                <option>היברידי (רגיל/פלאג-אין)</option>
-                                <option>חשמלי מלא (BEV)</option>
-                            </select>
-                        </div>
-                         <div class="space-y-2">
-                             <label class="text-xs font-bold uppercase tracking-wider text-slate-400">תיבת הילוכים</label>
-                            <select id="transmission" name="transmission" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
-                                <option selected>אוטומטית (פלנטרית/רציפה)</option>
-                                <option>רובוטית (כפולת מצמדים)</option>
-                                <option>ידנית</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="space-y-2">
-                        <label for="sub_model" class="text-xs font-bold uppercase tracking-wider text-slate-400">רמת גימור / תת-דגם</label>
-                        <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: Premium, Sport, GLI, 1.5 Turbo..." class="w-full bg-slate-900/50 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary placeholder-slate-600">
-                    </div>
-                </div>
-
-                <div class="pt-4 space-y-8">
-                    <label class="flex items-start gap-4 p-4 rounded-xl bg-slate-800/20 border border-slate-700/50 cursor-pointer group hover:bg-slate-800/40 transition-colors">
-                        <input type="checkbox" id="legal-confirm" name="legal-confirm" required class="mt-1 w-6 h-6 rounded border-2 border-slate-600 text-primary focus:ring-offset-0 focus:ring-primary bg-slate-900/50 checked:bg-primary transition-colors">
-                        <span class="text-sm text-slate-300 leading-relaxed">
-                            אני מאשר/ת כי אני מעל גיל 18, וקראתי והסכמתי <a href="{{ url_for('terms') }}" target="_blank" class="text-primary font-bold hover:underline underline-offset-4">לתנאי השימוש</a> ו<a href="{{ url_for('privacy') }}" target="_blank" class="text-primary font-bold hover:underline underline-offset-4">מדיניות הפרטיות</a> של האתר.
-                        </span>
-                    </label>
-                    <p id="legal-error" class="hidden flex items-center text-red-400 text-sm bg-red-950/30 border border-red-900/50 p-3 rounded-lg animate-pulse">
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" /></svg>
-                        אנא אשר/י את תנאי השימוש כדי להמשיך בתהליך.
-                    </p>
-
-                    <button type="submit" id="submit-button" class="relative w-full md:w-auto md:min-w-[360px] mx-auto flex items-center justify-center py-5 px-10 bg-gradient-to-r from-primary to-secondary hover:from-primary/110 hover:to-secondary/110 text-white font-black text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 overflow-hidden group">
-                        <span class="absolute inset-0 w-full h-full bg-white/20 group-hover:w-0 transition-all duration-500 ease-out opacity-0 group-hover:opacity-100"></span>
-                        <span class="button-text relative z-10 flex items-center">
-                            🚀 הפעל מנוע ניתוח AI
-                        </span>
-                        <div class="spinner hidden relative z-10 mr-3" aria-hidden="true">
-                            <div class="loader"></div>
-                        </div>
-                    </button>
-                </div>
-            </form>
-            {% else %}
-            <!-- מצב לא מחובר -->
-            <div class="text-center py-8 space-y-8">
-                <div class="relative inline-block">
-                    <div class="absolute inset-0 bg-primary/30 blur-3xl rounded-full"></div>
-                    <div class="relative bg-dark-lighter p-6 rounded-3xl border border-slate-700/50 shadow-xl">
-                        <span class="text-7xl filter drop-shadow-lg">🔒</span>
-                    </div>
-                </div>
-                <div>
-                    <h3 class="text-3xl font-bold text-white mb-4">גישה לחברי מועדון בלבד</h3>
-                    <p class="text-slate-400 text-lg max-w-md mx-auto">
-                        הצטרף לאלפי ישראלים שכבר חסכו כסף וכאב ראש. ההרשמה קצרה וחינמית.
-                    </p>
-                </div>
-                <a href="/login" class="group relative inline-flex items-center justify-center px-10 py-5 text-xl font-bold text-white transition-all duration-300 bg-gradient-to-r from-primary to-secondary rounded-2xl hover:scale-[1.03] hover:shadow-neon active:scale-95 overflow-hidden">
-                    <span class="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></span>
-                    <svg class="w-7 h-7 ml-3" fill="currentColor" viewBox="0 0 24 24"><path d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,4.73 12.2,4.73C15.29,4.73 17.1,6.7 17.1,6.7L19,4.72C19,4.72 16.56,2 12.1,2C6.42,2 2.03,6.8 2.03,12C2.03,17.05 6.16,22 12.25,22C17.6,22 21.5,18.33 21.5,12.91C21.5,11.76 21.35,11.1 21.35,11.1V11.1Z" /></svg>
-                    התחברות מהירה עם Google
-                </a>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <!-- Make -->
+          <div class="group space-y-3">
+            <label for="make" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
+              יצרן <span class="text-secondary mr-1">*</span>
+            </label>
+            <div class="relative">
+              <select id="make" name="make" required
+                      class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all hover:border-slate-600 cursor-pointer">
+                <option value="">בחר יצרן מהרשימה...</option>
+                {% if car_models_data %}
+                  {% for make in car_models_data.keys()|sort %}
+                    <option value="{{ make }}">{{ make }}</option>
+                  {% endfor %}
+                {% endif %}
+              </select>
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500 group-focus-within:text-primary transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </div>
             </div>
-            <!-- טופס דמי לשמירת גובה -->
-            <div class="hidden" aria-hidden="true" style="min-height: 400px;"></div>
-            {% endif %}
+          </div>
+
+          <!-- Model -->
+          <div class="group space-y-3">
+            <label for="model" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
+              דגם <span class="text-secondary mr-1">*</span>
+            </label>
+            <div class="relative">
+              <select id="model" name="model" required disabled
+                      class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <option value="">-- קודם בחר יצרן --</option>
+              </select>
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </div>
+            </div>
+          </div>
+
+          <!-- Year -->
+          <div class="group space-y-3">
+            <label for="year" class="flex items-center text-sm font-bold text-slate-300 group-focus-within:text-primary transition-colors">
+              שנתון <span class="text-secondary mr-1">*</span>
+            </label>
+            <div class="relative">
+              <select id="year" name="year" required disabled
+                      class="w-full appearance-none bg-slate-900/50 border-2 border-slate-700 rounded-xl px-5 py-4 text-white focus:ring-0 focus:border-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                <option value="">-- קודם בחר דגם --</option>
+              </select>
+              <div class="absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clip-rule="evenodd"/></svg>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <!-- === SOCIAL PROOF === -->
-        <div class="mt-32 grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto text-center fade-in delay-200">
-            <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
-                <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">בינה מלאכותית מתקדמת</h3>
-                <p class="text-slate-400 leading-relaxed">המערכת סורקת אלפי מקורות מידע בזמן אמת כדי לספק תמונה עדכנית ומדויקת.</p>
+        <!-- Optional details -->
+        <div class="bg-slate-800/30 p-6 rounded-2xl border border-slate-700/50 space-y-6">
+          <h4 class="text-lg font-bold text-white flex items-center">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 ml-2 text-primary" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M11.49 3.17c-.38-1.56-2.6-1.56-2.98 0a1.532 1.532 0 01-2.286.948c-1.372-.836-2.942.734-2.106 2.106.54.886.061 2.042-.947 2.287-1.561.379-1.561 2.6 0 2.978a1.532 1.532 0 01.947 2.287c-.836 1.372.734 2.942 2.106 2.106a1.532 1.532 0 012.287.947c.379 1.561 2.6 1.561 2.978 0a1.533 1.533 0 012.287-.947c1.372.836 2.942-.734 2.106-2.106a1.533 1.533 0 01.947-2.287c1.561-.379 1.561-2.6 0-2.978a1.532 1.532 0 01-.947-2.287c.836-1.372-.734-2.942-2.106-2.106a1.532 1.532 0 01-2.287-.947zM10 13a3 3 0 100-6 3 3 0 000 6z" clip-rule="evenodd"/></svg>
+            דיוק נתונים (אופציונלי)
+          </h4>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="space-y-2">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-400">מד אוץ (ק"מ)</label>
+              <select id="mileage_range" name="mileage_range" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
+                <option>עד 50,000 ק"מ</option>
+                <option>50,000 - 100,000 ק"מ</option>
+                <option selected>100,000 - 150,000 ק"מ</option>
+                <option>150,000 - 200,000 ק"מ</option>
+                <option>מעל 200,000 ק"מ</option>
+              </select>
             </div>
-            <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
-                <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-white transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">מותאם לישראל</h3>
-                <p class="text-slate-400 leading-relaxed">התייחסות ספציפית לאקלים החם, הפקקים, איכות הדלק ומחירי החלפים בארץ.</p>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-400">סוג מנוע</label>
+              <select id="fuel_type" name="fuel_type" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
+                <option selected>בנזין</option>
+                <option>דיזל</option>
+                <option>היברידי (רגיל/פלאג-אין)</option>
+                <option>חשמלי מלא (BEV)</option>
+              </select>
             </div>
-            <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
-                <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-green-500/10 text-green-500 group-hover:bg-green-500 group-hover:text-white transition-colors duration-300">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                </div>
-                <h3 class="text-2xl font-bold text-white mb-3">חיסכון כספי משמעותי</h3>
-                <p class="text-slate-400 leading-relaxed">מניעת קניית "לימון" וחיזוי הוצאות תחזוקה עתידיות יכולים לחסוך עשרות אלפי שקלים.</p>
+
+            <div class="space-y-2">
+              <label class="text-xs font-bold uppercase tracking-wider text-slate-400">תיבת הילוכים</label>
+              <select id="transmission" name="transmission" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
+                <option selected>אוטומטית (פלנטרית/רציפה)</option>
+                <option>רובוטית (כפולת מצמדים)</option>
+                <option>ידנית</option>
+              </select>
             </div>
+          </div>
+
+          <div class="space-y-2">
+            <label for="sub_model" class="text-xs font-bold uppercase tracking-wider text-slate-400">רמת גימור / תת-דגם</label>
+            <input type="text" id="sub_model" name="sub_model" placeholder="לדוגמה: Premium, Sport, GLI, 1.5 Turbo..."
+                   class="w-full bg-slate-900/50 border-slate-700 rounded-xl px-4 py-3 focus:ring-primary focus:border-primary placeholder-slate-600"/>
+          </div>
         </div>
 
-        <!-- תוצאות -->
-        <div id="results-container" class="hidden w-full max-w-5xl mt-16 fade-in delay-300">
-            <div id="results-content" class="bg-dark-lighter/80 backdrop-blur-xl p-8 md:p-12 rounded-[2rem] border border-slate-700/50 shadow-2xl text-slate-200 prose prose-lg prose-invert max-w-none prose-headings:text-white prose-a:text-primary prose-strong:text-white">
-                <!-- התוצאות יוזרקו לכאן -->
+        <div class="pt-4 space-y-8">
+          <label class="flex items-start gap-4 p-4 rounded-xl bg-slate-800/20 border border-slate-700/50 cursor-pointer group hover:bg-slate-800/40 transition-colors">
+            <input type="checkbox" id="legal-confirm" name="legal-confirm" required
+                   class="mt-1 w-6 h-6 rounded border-2 border-slate-600 text-primary focus:ring-offset-0 focus:ring-primary bg-slate-900/50 checked:bg-primary transition-colors"/>
+            <span class="text-sm text-slate-300 leading-relaxed">
+              אני מאשר/ת כי אני מעל גיל 18, וקראתי והסכמתי
+              <a href="{{ url_for('terms') }}" target="_blank" class="text-primary font-bold hover:underline underline-offset-4">לתנאי השימוש</a>
+              ו
+              <a href="{{ url_for('privacy') }}" target="_blank" class="text-primary font-bold hover:underline underline-offset-4">מדיניות הפרטיות</a>.
+            </span>
+          </label>
+          <p id="legal-error" class="hidden flex items-center text-red-400 text-sm bg-red-950/30 border border-red-900/50 p-3 rounded-lg">
+            נדרש לאשר את תנאי השימוש.
+          </p>
+
+          <button type="submit" id="submit-button"
+                  class="relative w-full md:w-auto md:min-w-[360px] mx-auto flex items-center justify-center py-5 px-10 bg-gradient-to-r from-primary to-secondary hover:from-primary/110 hover:to-secondary/110 text-white font-black text-xl rounded-2xl shadow-xl shadow-primary/20 transition-all hover:scale-[1.02] active:scale-95 overflow-hidden">
+            <span class="button-text relative z-10 flex items-center">🚀 הפעל מנוע ניתוח AI</span>
+            <div class="spinner hidden relative z-10 mr-3" aria-hidden="true">
+              <div class="loader"></div>
             </div>
+          </button>
         </div>
+      </form>
 
-    </main>
-
-    <!-- === FOOTER === -->
-    <footer class="mt-32 py-12 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
-        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
-            <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition-opacity">
-                <span class="text-2xl">🚗</span>
-                <span class="font-bold text-white">CarAnalyzer.AI</span>
-            </div>
-            <p class="text-slate-500 text-sm">© 2025 ידע רכב. פותח בגאווה בישראל 🇮🇱.</p>
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition-colors">מדיניות פרטיות</a>
-                <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition-colors">תקנון שימוש</a>
-            </div>
+      {% else %}
+      <!-- Logged-out view -->
+      <div class="text-center py-8 space-y-8">
+        <div class="relative inline-block">
+          <div class="absolute inset-0 bg-primary/30 blur-3xl rounded-full"></div>
+          <div class="relative bg-dark-lighter p-6 rounded-3xl border border-slate-700/50 shadow-xl">
+            <span class="text-7xl filter drop-shadow-lg">🔒</span>
+          </div>
         </div>
-    </footer>
+        <div>
+          <h3 class="text-3xl font-bold text-white mb-4">גישה לחברי מועדון בלבד</h3>
+          <p class="text-slate-400 text-lg max-w-md mx-auto">
+            הצטרף לאלפי ישראלים שכבר חסכו כסף וכאב ראש. ההרשמה קצרה וחינמית.
+          </p>
+        </div>
+        <a href="/login"
+           class="group relative inline-flex items-center justify-center px-10 py-5 text-xl font-bold text-white transition-all duration-300 bg-gradient-to-r from-primary to-secondary rounded-2xl hover:scale-[1.03] hover:shadow-neon active:scale-95 overflow-hidden">
+          התחברות מהירה עם Google
+        </a>
+      </div>
+      <div class="hidden" aria-hidden="true" style="min-height: 400px;"></div>
+      {% endif %}
+    </div>
 
-    <!-- נתונים לסקריפט -->
-    <script>
-        // משתני עזר בטוחים - ייטענו גם אם Flask לא פעיל
-        let userIsAuthenticated = false;
-        let carModelsData = {};
+    <!-- Social proof -->
+    <div class="mt-32 grid grid-cols-1 md:grid-cols-3 gap-12 max-w-6xl mx-auto text-center fade-in delay-200">
+      <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
+        <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-colors duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-3">בינה מלאכותית מתקדמת</h3>
+        <p class="text-slate-400 leading-relaxed">המערכת משלבת ניתוח חכם ומקורות מידע עדכניים.</p>
+      </div>
+      <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
+        <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-secondary/10 text-secondary group-hover:bg-secondary group-hover:text-white transition-colors duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-3">מותאם לישראל</h3>
+        <p class="text-slate-400 leading-relaxed">התייחסות לאקלים, עומסים, דלק ועלויות מקומיות.</p>
+      </div>
+      <div class="group p-8 rounded-3xl bg-dark-lighter/40 border border-slate-700/30 hover:bg-dark-lighter/60 transition-all duration-300 hover:-translate-y-2">
+        <div class="inline-flex items-center justify-center w-20 h-20 mb-6 rounded-2xl bg-green-500/10 text-green-500 group-hover:bg-green-500 group-hover:text-white transition-colors duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <h3 class="text-2xl font-bold text-white mb-3">חיסכון כספי משמעותי</h3>
+        <p class="text-slate-400 leading-relaxed">מניעת קניית "לימון" וחיזוי תחזוקה.</p>
+      </div>
+    </div>
 
-        // שימוש ב-template literals כדי למנוע שגיאות תחביר כאשר Jinja לא פעיל
-        // השרת יחליף את כל הביטוי כולל הגרשיים אם הוא פעיל, אחרת יישאר מחרוזת שניתן לבדוק
-        const rawAuth = `{{ user.is_authenticated | tojson if user is defined and user.is_authenticated is defined else 'false' }}`;
-        const rawData = `{{ car_models_data | tojson if car_models_data is defined else '{}' }}`;
+    <!-- Results -->
+    <div id="results-container" class="hidden w-full max-w-5xl mt-16 fade-in delay-300">
+      <div id="results-content" class="bg-dark-lighter/80 backdrop-blur-xl p-8 md:p-12 rounded-[2rem] border border-slate-700/50 shadow-2xl text-slate-200 prose prose-lg prose-invert max-w-none prose-headings:text-white prose-a:text-primary prose-strong:text-white">
+        <!-- התוצאות יוזרקו כאן -->
+      </div>
+    </div>
+  </main>
 
-        if (rawAuth.includes('{' + '{')) {
-             console.warn("Running in static mode (no Flask backend detected).");
-             // מצב סטטי - נתונים לבדיקה
-             userIsAuthenticated = false; // שנה ל-true כדי לבדוק מצב מחובר
-             carModelsData = {
-                 "Toyota": {"Corolla": [2020, 2021, 2022], "RAV4": [2021, 2022]},
-                 "Mazda": {"3": [2019, 2020, 2021], "CX-5": [2020, 2022]},
-                 "Hyundai": {"Tucson": [2021, 2022, 2023], "Ioniq 5": [2022, 2023]}
-             };
+  <!-- FOOTER -->
+  <footer class="mt-32 py-12 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition-opacity">
+        <span class="text-2xl">🚗</span>
+        <span class="font-bold text-white">CarAnalyzer.AI</span>
+      </div>
+      <p class="text-slate-500 text-sm">© 2025 ידע רכב. פותח בישראל 🇮🇱.</p>
+      <div class="flex gap-6 text-sm font-medium">
+        <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition-colors">מדיניות פרטיות</a>
+        <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition-colors">תקנון שימוש</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===== Server data (Jinja -> JS) ===== -->
+  <script>
+    // אין שימוש ב-template literals עם {{ }} כדי למנוע התנגשות Jinja.
+    const userIsAuthenticated = {{ (current_user.is_authenticated | tojson) if current_user else 'false' }};
+    const carModelsData = {{ (car_models_data | tojson) if car_models_data else '{}' }};
+  </script>
+
+  <!-- ===== App Logic ===== -->
+  <script>
+    (function () {
+      const makeEl = document.getElementById('make');
+      const modelEl = document.getElementById('model');
+      const yearEl = document.getElementById('year');
+
+      // שמירה: carModelsData צפוי במבנה:
+      // {
+      //   "Toyota": {"Corolla": [2017,2018,2019], "RAV4": [2020,2021]},
+      //   "Mazda": {"3": [2019,2020]}
+      // }
+      function clearSelect(select, placeholder) {
+        select.innerHTML = '';
+        const opt = document.createElement('option');
+        opt.value = '';
+        opt.textContent = placeholder;
+        select.appendChild(opt);
+      }
+
+      function enable(select, flag) {
+        if (flag) {
+          select.removeAttribute('disabled');
+          select.classList.remove('disabled:opacity-50','disabled:cursor-not-allowed');
         } else {
-            // מצב שרת פעיל - המרת הנתונים האמיתיים
-            try {
-                userIsAuthenticated = JSON.parse(rawAuth);
-                carModelsData = JSON.parse(rawData);
-            } catch (e) {
-                console.error("Failed to parse server data:", e);
-            }
+          select.setAttribute('disabled','disabled');
         }
-    </script>
-    <!-- סקריפט ראשי -->
-    <script src="/static/script.js"></script>
+      }
 
+      function populateModelsForMake(make) {
+        clearSelect(modelEl, '-- קודם בחר יצרן --');
+        clearSelect(yearEl, '-- קודם בחר דגם --');
+        enable(yearEl, false);
+
+        const modelsObj = (carModelsData && carModelsData[make]) ? carModelsData[make] : null;
+        if (!modelsObj || typeof modelsObj !== 'object') {
+          enable(modelEl, false);
+          return;
+        }
+
+        const models = Object.keys(modelsObj).sort();
+        if (models.length === 0) {
+          enable(modelEl, false);
+          return;
+        }
+
+        clearSelect(modelEl, 'בחר דגם...');
+        models.forEach(m => {
+          const o = document.createElement('option');
+          o.value = m; o.textContent = m;
+          modelEl.appendChild(o);
+        });
+        enable(modelEl, true);
+      }
+
+      function populateYearsForMakeModel(make, model) {
+        clearSelect(yearEl, '-- קודם בחר דגם --');
+
+        const yearsArr =
+          carModelsData && carModelsData[make] && Array.isArray(carModelsData[make][model])
+            ? carModelsData[make][model]
+            : (carModelsData && carModelsData[make] && carModelsData[make][model] && typeof carModelsData[make][model] === 'object' && carModelsData[make][model].years
+                ? carModelsData[make][model].years
+                : null);
+
+        if (!yearsArr || yearsArr.length === 0) {
+          enable(yearEl, false);
+          return;
+        }
+
+        clearSelect(yearEl, 'בחר שנתון...');
+        // סידור יורד או עולה – נניח יורד
+        yearsArr.slice().sort((a,b)=>b-a).forEach(y => {
+          const o = document.createElement('option');
+          o.value = y; o.textContent = y;
+          yearEl.appendChild(o);
+        });
+        enable(yearEl, true);
+      }
+
+      if (makeEl) {
+        makeEl.addEventListener('change', function () {
+          const make = this.value;
+          if (!make) {
+            clearSelect(modelEl, '-- קודם בחר יצרן --');
+            clearSelect(yearEl, '-- קודם בחר דגם --');
+            enable(modelEl, false);
+            enable(yearEl, false);
+            return;
+          }
+          populateModelsForMake(make);
+        });
+      }
+
+      if (modelEl) {
+        modelEl.addEventListener('change', function () {
+          const make = makeEl ? makeEl.value : '';
+          const model = this.value;
+          if (!make || !model) {
+            clearSelect(yearEl, '-- קודם בחר דגם --');
+            enable(yearEl, false);
+            return;
+          }
+          populateYearsForMakeModel(make, model);
+        });
+      }
+
+      // אם השרת מחזיר יצרן כבר נבחר (מצב חזרה מדשבורד וכו') – אפשר לאתחל
+      // (לא חובה; השארתי פשוט כדי שלא יפריע).
+
+      // Submit (דוגמה; אם יש לך /analyze ב־Flask, שנה בהתאם)
+      const form = document.getElementById('car-form');
+      if (form) {
+        form.addEventListener('submit', async (e) => {
+          e.preventDefault();
+
+          const legalOk = document.getElementById('legal-confirm')?.checked;
+          const legalErr = document.getElementById('legal-error');
+          if (!legalOk) {
+            if (legalErr) legalErr.classList.remove('hidden');
+            return;
+          } else {
+            if (legalErr) legalErr.classList.add('hidden');
+          }
+
+          const btn = document.getElementById('submit-button');
+          const spinner = btn?.querySelector('.spinner');
+          const btnText = btn?.querySelector('.button-text');
+          if (spinner) spinner.classList.remove('hidden');
+          if (btnText) btnText.textContent = 'מנתח...';
+
+          const payload = {
+            make: makeEl?.value || '',
+            model: modelEl?.value || '',
+            year: yearEl?.value || '',
+            mileage_range: document.getElementById('mileage_range')?.value || '',
+            fuel_type: document.getElementById('fuel_type')?.value || '',
+            transmission: document.getElementById('transmission')?.value || '',
+            sub_model: document.getElementById('sub_model')?.value || ''
+          };
+
+          try {
+            const res = await fetch('/analyze', {
+              method: 'POST',
+              headers: { 'Content-Type':'application/json' },
+              body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+
+            const container = document.getElementById('results-container');
+            const content = document.getElementById('results-content');
+            if (container && content) {
+              content.innerHTML = data.html || `<pre class="whitespace-pre-wrap">${JSON.stringify(data, null, 2)}</pre>`;
+              container.classList.remove('hidden');
+              container.scrollIntoView({ behavior:'smooth', block:'start' });
+            }
+          } catch (err) {
+            const container = document.getElementById('results-container');
+            const content = document.getElementById('results-content');
+            if (container && content) {
+              content.innerHTML = `<div class="text-red-300">שגיאה בעיבוד הבקשה. נסה שוב.</div>`;
+              container.classList.remove('hidden');
+            }
+            console.error(err);
+          } finally {
+            if (spinner) spinner.classList.add('hidden');
+            if (btnText) btnText.textContent = '🚀 הפעל מנוע ניתוח AI';
+          }
+        });
+      }
+    })();
+  </script>
 </body>
 </html>
