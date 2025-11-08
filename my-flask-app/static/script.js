@@ -137,17 +137,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
             try {
                 console.log("Sending search:", searchData);
-                const response = await fetch('/search', {
+                // שינינו כאן ל-/analyze כדי להתאים לשרת
+                const response = await fetch('/analyze', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(searchData)
                 });
 
-                // בדיקה מקדימה אם התשובה היא בכלל בפורמט JSON
                 const contentType = response.headers.get("content-type");
                 if (!contentType || !contentType.includes("application/json")) {
                     const text = await response.text();
-                    console.error("Server returned non-JSON response:", text.substring(0, 200)); // הצגת תחילת התגובה השגויה בלוג
+                    console.error("Server returned non-JSON response:", text.substring(0, 200));
                     throw new Error(`שגיאת שרת (Status ${response.status}). נסה שוב מאוחר יותר.`);
                 }
 
@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.displayResultsOverride(data);
                 } else {
                     alert("התקבלו תוצאות, אך רכיב התצוגה חסר. בדוק את הקונסול.");
-                    console.log("Raw results:", data.response);
+                    console.log("Raw results:", data);
                 }
 
             } catch (error) {
@@ -176,6 +176,3 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 if (spinner) spinner.classList.add('hidden');
             }
-        });
-    }
-});
