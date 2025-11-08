@@ -302,12 +302,11 @@
     </footer>
 
     <!-- נתונים קריטיים ל-JavaScript -->
-    <!-- הזרקת נתונים חסינה באמצעות תגיות script מסוג application/json -->
     <script type="application/json" id="auth-data">
-        {{ user.is_authenticated | tojson | safe if user is defined and user.is_authenticated is defined else 'false' }}
+        {% if user.is_authenticated %}true{% else %}false{% endif %}
     </script>
     <script type="application/json" id="car-data">
-        {{ car_models_data | tojson | safe if car_models_data is defined else '{}' }}
+        {{ car_models_data | tojson | safe }}
     </script>
 
     <script>
@@ -317,11 +316,8 @@
                 const element = document.getElementById(elementId);
                 if (element) {
                     const text = element.textContent.trim();
-                    // בדיקה אם הטקסט מתחיל בסוגריים מסולסלים - סימן שהתבנית לא רונדרה
-                    if (text.startsWith('{{')) {
-                        console.warn(`Template data for #${elementId} not rendered by Flask. Using default.`);
-                        return defaultValue;
-                    }
+                    // אם הטקסט מתחיל ב-{{, זה אומר שהשרת לא רינדר אותו, ולכן מחזירים ברירת מחדל
+                    if (text.startsWith('{{')) return defaultValue;
                     return JSON.parse(text);
                 }
             } catch (e) {
@@ -347,7 +343,6 @@
             const container = document.getElementById('results-container');
             const scoreContainer = document.getElementById('reliability-score-container');
             
-            // חילוץ הציון מהתשובה (אם קיים, אחרת ברירת מחדל)
             let score = 0;
             if (data.base_score_calculated) {
                 score = parseFloat(data.base_score_calculated);
@@ -357,14 +352,12 @@
             }
             score = Math.round(score);
 
-            // קביעת צבע וטקסט לפי הציון
             let scoreColor = 'bg-warning', scoreText = 'אמינות בינונית';
             if (score >= 80) { scoreColor = 'bg-success'; scoreText = 'רכב אמין מאוד 🏆'; }
             else if (score >= 70) { scoreColor = 'bg-primary'; scoreText = 'רכב אמין ✅'; }
             else if (score > 0 && score <= 50) { scoreColor = 'bg-danger'; scoreText = 'פוטנציאל לאמינות נמוכה ⚠️'; }
             else if (score === 0) { scoreColor = 'bg-slate-500'; scoreText = 'ציון לא זמין'; }
 
-            // הצגת הציון
             scoreContainer.innerHTML = `
                 <div class="score-circle ${scoreColor} mb-4">
                     <span class="text-5xl">${score > 0 ? score : '?'}</span>
@@ -373,7 +366,6 @@
                 <h3 class="text-2xl font-bold ${scoreColor.replace('bg-', 'text-')}">${scoreText}</h3>
             `;
 
-            // פיזור התוכן לטאבים
             if (data.reliability_summary) {
                 document.getElementById('summary').innerHTML = marked.parse(data.reliability_summary);
             } else if (data.response) {
