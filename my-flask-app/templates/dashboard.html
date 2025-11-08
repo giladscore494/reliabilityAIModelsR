@@ -1,125 +1,287 @@
 <!DOCTYPE html>
 <html lang="he" dir="rtl" class="scroll-smooth">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>🚗 החיפושים שלי - ידע רכב</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>החיפושים שלי – CarAnalyzer.AI</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Tailwind + Marked + Heebo -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
 
-    <!-- Heebo Font -->
-    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root{ --bg-dark:#0F172A; --text-light:#E2E8F0; --primary:#6366F1; --secondary:#EC4899; }
+    body{ font-family:'Heebo',system-ui,-apple-system,sans-serif; background:var(--bg-dark); color:var(--text-light); }
+    .fade-in{ animation:fadeIn .6s cubic-bezier(.4,0,.2,1) forwards; opacity:0 }
+    @keyframes fadeIn{ from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:none} }
+    .card{ background:rgba(30,41,59,.6); border:1px solid rgba(51,65,85,.5); border-radius:1.75rem; }
+    .chip{ background:rgba(99,102,241,.12); border:1px solid rgba(99,102,241,.35); }
+    .btn{ background-image:linear-gradient(90deg,var(--primary),var(--secondary)); }
+    .btn:hover{ filter:brightness(1.05) }
+    .backdrop{ backdrop-filter:saturate(130%) blur(8px) }
+    /* Modal */
+    .modal-mask{ position:fixed; inset:0; background:rgba(2,6,23,.65); display:none; align-items:center; justify-content:center; z-index:60 }
+    .modal{ width:min(100%,900px); border-radius:1.75rem; border:1px solid rgba(51,65,85,.5); background:rgba(15,23,42,.96) }
+    /* Scrollbar */
+    ::-webkit-scrollbar{ width:10px } ::-webkit-scrollbar-track{ background:#1e293b } ::-webkit-scrollbar-thumb{ background:#475569; border-radius:5px } ::-webkit-scrollbar-thumb:hover{ background:#64748b }
+  </style>
 
-    <style>
-        body { font-family: 'Heebo', sans-serif; }
-        .fade-in { animation: fadeIn 0.5s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
-</head>
-<body class="bg-gray-100 text-gray-800">
-
-<header class="bg-white shadow-md p-4 sticky top-0 z-20">
-    <div class="container mx-auto flex justify-between items-center">
-        <h1 class="text-2xl font-bold text-blue-600">🚗 החיפושים שלי</h1>
-        <div class="flex space-x-4 space-x-reverse">
-            <span class="font-medium">שלום, {{ user.name.split(' ')[0] if user.name else 'משתמש' }}</span>
-            <a href="/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">חזרה לחיפוש</a>
-            <a href="/logout" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md">התנתק</a>
-        </div>
-    </div>
-</header>
-
-<main class="container mx-auto px-4 py-8">
-
-    <!-- סינון תאריך -->
-    <div class="mb-8">
-        <h2 class="text-xl font-semibold mb-4">סינון תוצאה לפי תאריך</h2>
-        <form method="GET" action="/dashboard" class="flex items-center space-x-4 space-x-reverse">
-            <input type="date" name="from_date" class="border p-2 rounded-md" value="{{ request.args.get('from_date', '') }}">
-            <input type="date" name="to_date" class="border p-2 rounded-md" value="{{ request.args.get('to_date', '') }}">
-            <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md">סנן</button>
-        </form>
-    </div>
-
-    {% if searches %}
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {% for search in searches %}
-            <div class="bg-white p-6 rounded-lg shadow-lg fade-in" id="search-{{ search.id }}">
-                <h3 class="text-xl font-bold text-blue-700">{{ search.make | title }} {{ search.model | title }} ({{ search.year }})</h3>
-                <p class="text-sm text-gray-500 mt-1">חיפוש מתאריך: {{ search.timestamp }}</p>
-
-                <div class="mt-4">
-                    <p class="text-3xl font-extrabold text-blue-600">{{ search.data.base_score_calculated }} / 100</p>
-                    <p class="mt-2 text-gray-700 line-clamp-3">{{ search.data.reliability_summary }}</p>
-                </div>
-
-                <div class="flex justify-between mt-4">
-                    <button 
-                        class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md"
-                        onclick="openModal({{ search.data | tojson }})">
-                        הצג פרטים
-                    </button>
-                    <button 
-                        class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md"
-                        onclick="deleteSearch({{ search.id }})">
-                        מחיקה
-                    </button>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    {% else %}
-        <div class="text-center py-20">
-            <h3 class="text-xl font-bold mb-4">לא נמצאו תוצאות</h3>
-            <p class="mb-4">חזור לדף הבית כדי לבצע את החיפוש הראשון שלך.</p>
-            <a href="/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">חזרה לחיפוש</a>
-        </div>
-    {% endif %}
-</main>
-
-<footer class="text-center py-6 bg-white border-t mt-10 text-sm">
-    <p>&copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.</p>
-    <div class="mt-2">
-        <a href="{{ url_for('privacy') }}" class="text-blue-600 mx-2">מדיניות פרטיות</a>
-        |
-        <a href="{{ url_for('terms') }}" class="text-blue-600 mx-2">תקנון שימוש</a>
-    </div>
-</footer>
-
-<!-- Modal -->
-<div id="json-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
-    <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full p-6 overflow-auto max-h-[90vh]">
-        <h2 class="text-xl font-bold mb-4">📄 נתונים מלאים</h2>
-        <pre id="json-content" class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto overflow-y-auto max-h-[60vh] whitespace-pre-wrap"></pre>
-        <button class="mt-4 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-md" onclick="closeModal()">סגור</button>
-    </div>
-</div>
-
-<script>
-function openModal(data) {
-    document.getElementById('json-content').textContent = JSON.stringify(data, null, 2);
-    const modal = document.getElementById('json-modal');
-    modal.classList.remove('hidden');
-    modal.classList.add('flex');
-}
-
-function closeModal() {
-    const modal = document.getElementById('json-modal');
-    modal.classList.add('hidden');
-    modal.classList.remove('flex');
-}
-
-async function deleteSearch(id) {
-    if (!confirm('למחוק את החיפוש הזה? פעולה זו אינה הפיכה.')) return;
-    const res = await fetch(`/delete-search/${id}`, { method: 'DELETE' });
-    if (res.ok) {
-        document.getElementById(`search-${id}`).remove();
-    } else {
-        alert('שגיאה במחיקת החיפוש.');
+  <script>
+    tailwind.config = {
+      darkMode:'class',
+      theme:{ extend:{ colors:{ primary:'#6366F1', secondary:'#EC4899', dark:'#0F172A', 'dark-lighter':'#1E293B', success:'#10B981', warning:'#F59E0B', danger:'#EF4444' } } }
     }
-}
-</script>
+  </script>
+</head>
+<body class="min-h-screen flex flex-col">
 
-</body>
-</html>
+  <!-- NAV -->
+  <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+      <a href="/" class="flex items-center space-x-2 space-x-reverse group">
+        <span class="text-3xl group-hover:scale-110 transition-transform">🚗</span>
+        <h1 class="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">CarAnalyzer.AI</h1>
+      </a>
+      <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
+        <div class="hidden md:flex items-center gap-2 text-slate-400">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/></svg>
+          <span>{{ user.name.split(' ')[0] if user.name else 'אורח' }}</span>
+        </div>
+        <a href="/" class="px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition">חזרה לחיפוש</a>
+        <a href="/logout" class="px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition">התנתק</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN -->
+  <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
+    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none"
+         style="background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(15,23,42,0) 70%);">
+    </div>
+
+    <div class="relative z-10 mb-10 fade-in">
+      <h2 class="text-4xl md:text-6xl font-extrabold mb-4 text-white">החיפושים שלי</h2>
+      <p class="text-slate-400 text-lg">כל הדוחות שהפקת – בלחיצה אחת ל“הצג פרטים”.</p>
+    </div>
+
+    {% if searches and searches|length > 0 %}
+      <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 fade-in">
+        {% for s in searches %}
+          <div class="card p-6 backdrop">
+            <div class="flex items-start justify-between gap-4">
+              <div>
+                <h3 class="text-xl font-extrabold text-white">
+                  {{ s.make|title }} {{ s.model|title }} <span class="text-slate-400">({{ s.year }})</span>
+                </h3>
+                <div class="mt-1 text-sm text-slate-400">{{ s.timestamp }}</div>
+              </div>
+              {% set base_score = (s.data.base_score_calculated if s.data and 'base_score_calculated' in s.data else None) %}
+              <div class="flex flex-col items-center">
+                <div class="rounded-xl px-3 py-1 chip text-sm font-semibold text-indigo-300">ציון</div>
+                <div class="mt-2 text-3xl font-black {{ 'text-primary' if base_score and base_score|float >= 70 else 'text-slate-200' }}">
+                  {{ base_score if base_score else '—' }}
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-wrap gap-2 text-xs">
+              {% if s.mileage_range %}<span class="chip px-3 py-1 rounded-full text-indigo-300">ק״מ: {{ s.mileage_range }}</span>{% endif %}
+              {% if s.fuel_type %}<span class="chip px-3 py-1 rounded-full text-indigo-300">דלק: {{ s.fuel_type }}</span>{% endif %}
+              {% if s.transmission %}<span class="chip px-3 py-1 rounded-full text-indigo-300">גיר: {{ s.transmission }}</span>{% endif %}
+            </div>
+
+            <p class="mt-4 text-slate-300 line-clamp-3">
+              {% if s.data and s.data.reliability_summary %}
+                {{ s.data.reliability_summary[:180] }}{% if s.data.reliability_summary|length > 180 %}…{% endif %}
+              {% else %}
+                אין סיכום זמין לתצוגה מקדימה.
+              {% endif %}
+            </p>
+
+            <div class="mt-6 flex items-center justify-between">
+              <button
+                class="show-details btn text-white px-5 py-3 rounded-xl font-bold shadow-lg shadow-primary/20 hover:shadow-primary/40 transition"
+                data-id="{{ s.id }}">
+                הצג פרטים
+              </button>
+              <a class="text-sm text-slate-400 hover:text-indigo-300 underline underline-offset-4"
+                 href="/" title="בדוק רכב נוסף">בדיקה חדשה</a>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="card p-10 text-center fade-in">
+        <div class="text-6xl mb-4">🔍</div>
+        <h3 class="text-2xl font-bold text-white mb-2">עדיין לא ביצעת חיפושים</h3>
+        <p class="text-slate-400 mb-6">חזור לדף הבית כדי לבצע את החיפוש הראשון שלך.</p>
+        <a href="/" class="btn inline-flex items-center justify-center px-8 py-4 text-lg font-bold text-white rounded-2xl hover:scale-[1.02] transition">חזרה לחיפוש</a>
+      </div>
+    {% endif %}
+  </main>
+
+  <!-- FOOTER -->
+  <footer class="mt-10 py-10 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
+    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+      <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition">
+        <span class="text-2xl">🚗</span>
+        <span class="font-bold text-white">CarAnalyzer.AI</span>
+      </div>
+      <p class="text-slate-500 text-sm">© 2025 ידע רכב. פותח בישראל 🇮🇱.</p>
+      <div class="flex gap-6 text-sm font-medium">
+        <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition">מדיניות פרטיות</a>
+        <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition">תקנון שימוש</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- MODAL -->
+  <div id="modal-mask" class="modal-mask">
+    <div class="modal p-0 overflow-hidden">
+      <div class="px-6 py-5 flex items-center justify-between border-b border-slate-800">
+        <h4 id="modal-title" class="text-xl md:text-2xl font-extrabold text-white">פרטי חיפוש</h4>
+        <button id="modal-close" class="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-white/10">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M6.225 4.811l.084.073L12 10.575l5.691-5.691a1 1 0 0 1 1.403 1.422L13.425 12l5.67 5.67a1 1 0 0 1-1.31 1.51l-.093-.08L12 13.425l-5.691 5.691a1 1 0 0 1-1.403-1.422L10.575 12l-5.67-5.67a1 1 0 0 1 1.31-1.51z"/></svg>
+        </button>
+      </div>
+
+      <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto">
+        <!-- צד שמאל: כותרת + ציון -->
+        <div class="lg:col-span-1 space-y-4">
+          <div class="card p-5">
+            <div class="text-sm text-slate-400" id="meta-time">—</div>
+            <h5 class="text-2xl font-black text-white" id="meta-title">—</h5>
+            <div class="mt-4 flex flex-wrap gap-2 text-xs" id="meta-chips"></div>
+          </div>
+
+          <div class="card p-5">
+            <div class="text-sm font-semibold text-indigo-300 mb-2">ציון אמינות</div>
+            <div class="text-5xl font-black" id="score-box">—</div>
+          </div>
+        </div>
+
+        <!-- צד ימין: טאבים ותוכן -->
+        <div class="lg:col-span-2 space-y-6">
+          <div class="flex flex-wrap border-b border-slate-700 overflow-x-auto">
+            <button class="tab-btn active" data-tab="summary">📄 סיכום</button>
+            <button class="tab-btn" data-tab="faults">🔧 תקלות</button>
+            <button class="tab-btn" data-tab="costs">💰 עלויות</button>
+            <button class="tab-btn" data-tab="competitors">🆚 מתחרים</button>
+            <button class="tab-btn" data-tab="sources">🔗 מקורות</button>
+          </div>
+
+          <div id="tab-summary" class="prose prose-invert max-w-none"></div>
+          <div id="tab-faults" class="prose prose-invert max-w-none hidden"></div>
+          <div id="tab-costs" class="prose prose-invert max-w-none hidden"></div>
+          <div id="tab-competitors" class="prose prose-invert max-w-none hidden"></div>
+          <div id="tab-sources" class="prose prose-invert max-w-none hidden"></div>
+        </div>
+      </div>
+
+      <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
+        <button id="modal-close-2" class="px-5 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition">סגור</button>
+        <a href="/" class="btn px-6 py-2 rounded-xl text-white font-bold">בדיקה חדשה</a>
+      </div>
+    </div>
+  </div>
+
+  {% raw %}
+  <script>
+    // עזרה: הפעלת טאב בתוך המודאל
+    function switchTab(tabName) {
+      const ids = ["summary","faults","costs","competitors","sources"];
+      ids.forEach(n => {
+        document.getElementById("tab-"+n).classList.toggle("hidden", n !== tabName);
+      });
+      document.querySelectorAll(".tab-btn").forEach(b => {
+        b.classList.toggle("active", b.dataset.tab === tabName);
+      });
+    }
+
+    // פתיחה/סגירה של מודאל
+    const mask = document.getElementById('modal-mask');
+    const closeButtons = [document.getElementById('modal-close'), document.getElementById('modal-close-2')];
+    closeButtons.forEach(btn => btn.addEventListener('click', () => mask.style.display = 'none'));
+    mask.addEventListener('click', (e) => { if (e.target === mask) mask.style.display = 'none'; });
+
+    // לחצני טאב
+    document.addEventListener('click', (e) => {
+      if (e.target.classList.contains('tab-btn')) {
+        e.preventDefault();
+        switchTab(e.target.dataset.tab);
+      }
+    });
+
+    // הצג פרטים (Fetch ל־/search-details/<id>)
+    document.querySelectorAll('.show-details').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const id = btn.dataset.id;
+        try {
+          const res = await fetch(`/search-details/${id}`);
+          if (!res.ok) throw new Error('שגיאה בשליפת פרטים');
+          const { meta, data } = await res.json();
+
+          // כותרות ומטה
+          document.getElementById('meta-time').textContent = meta.timestamp || '—';
+          document.getElementById('meta-title').textContent =
+            `${(meta.make||'').toUpperCase()} ${(meta.model||'').toUpperCase()} (${meta.year||'—'})`;
+
+          const chips = [];
+          if (meta.mileage_range) chips.push(`ק״מ: ${meta.mileage_range}`);
+          if (meta.fuel_type) chips.push(`דלק: ${meta.fuel_type}`);
+          if (meta.transmission) chips.push(`גיר: ${meta.transmission}`);
+          document.getElementById('meta-chips').innerHTML =
+            chips.map(c => `<span class="chip px-3 py-1 rounded-full text-indigo-300">${c}</span>`).join(' ');
+
+          // ציון
+          let score = 0;
+          if (data && typeof data.base_score_calculated !== 'undefined') {
+            score = Number(data.base_score_calculated) || 0;
+          }
+          document.getElementById('score-box').textContent = (score > 0 ? Math.round(score) : '—');
+
+          // טאבים: רינדור תכנים
+          const md = (t) => t ? marked.parse(String(t)) : '<p class="text-slate-400">—</p>';
+
+          // סיכום
+          const summary = data?.reliability_summary || data?.response || '—';
+          document.getElementById('tab-summary').innerHTML = md(summary);
+
+          // תקלות
+          let faultsHtml = '';
+          if (Array.isArray(data?.common_issues) && data.common_issues.length) {
+            faultsHtml += '<ul class="list-disc pr-5 space-y-2">';
+            data.common_issues.forEach(i => faultsHtml += `<li>${i}</li>`);
+            faultsHtml += '</ul>';
+          }
+          if (Array.isArray(data?.issues_with_costs) && data.issues_with_costs.length) {
+            faultsHtml += '<h4 class="text-xl font-bold mt-6 mb-3">עלויות תיקון משוערות:</h4><ul class="space-y-3">';
+            data.issues_with_costs.forEach(item => {
+              const cost = item?.avg_cost_ILS ?? '—';
+              const issue = item?.issue ?? '—';
+              faultsHtml += `<li class="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center"><span>${issue}</span><span class="font-bold text-primary">${cost} ₪</span></li>`;
+            });
+            faultsHtml += '</ul>';
+          }
+          document.getElementById('tab-faults').innerHTML = faultsHtml || '<p class="text-slate-400">—</p>';
+
+          // עלויות
+          let costsHtml = '';
+          if (data?.avg_repair_cost_ILS) {
+            costsHtml += `<h4 class="text-xl font-bold mb-3">עלות תחזוקה שנתית ממוצעת:</h4>
+                          <p class="text-3xl font-black text-primary mb-6">${data.avg_repair_cost_ILS} ₪</p>`;
+          }
+          if (data?.maintenance_cost_score) {
+            costsHtml += `<p>ציון עלויות אחזקה: <strong>${data.maintenance_cost_score}/10</strong></p>`;
+          }
+          document.getElementById('tab-costs').innerHTML = costsHtml || '<p class="text-slate-400">—</p>';
+
+          // מתחרים
+          let compHtml = '';
+          if (Array.isArray(data?.common_competitors_brief) && data.common_competitors_brief.length) {
+            compHtml += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+            data.common_competitors_brief.forEach(c => {
+              const m = c?.model ?? '—';
+              const b = c?.brief_summary ?? '';
+              compHtml += `<div class
