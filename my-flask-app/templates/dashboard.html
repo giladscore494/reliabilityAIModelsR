@@ -1,79 +1,125 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="rtl" class="scroll-smooth">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>החיפושים שלי</title>
-    <link rel="stylesheet" href="/static/style.css">
+    <title>🚗 החיפושים שלי - ידע רכב</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Heebo Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;700;900&display=swap" rel="stylesheet">
+
     <style>
-        main {
-            padding-top: 1.5rem;
-        }
-        .search-item {
-            background-color: var(--input-bg);
-            border: 1px solid var(--border-color);
-            border-radius: var(--radius-md);
-            margin-bottom: 1rem;
-            padding: 1.5rem;
-            box-shadow: var(--shadow-sm);
-        }
-        .search-item h3 {
-            margin-bottom: 0.5rem;
-            color: var(--primary-color);
-        }
-        .search-item .timestamp {
-            color: var(--text-light);
-            font-size: 0.9rem;
-            margin-bottom: 1rem;
-        }
-        .search-item .score {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-bottom: 1rem;
-        }
+        body { font-family: 'Heebo', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body>
-    <header>
-        <div class="user-corner">
-            <span>שלום, {{ user.name.split(' ')[0] if user.name else 'משתמש' }}</span>
-            <a href="/" class="user-button">חזרה לחיפוש</a>
-            <a href="/logout" class="user-button logout">התנתק</a>
-        </div>
-        
-        <div class="header-content">
-            <h1>החיפושים האחרונים שלי</h1>
-            <p>כאן תוכל לראות את כל הדוחות שהפקת</p>
-        </div>
-    </header>
+<body class="bg-gray-100 text-gray-800">
 
-    <main>
-        {% if searches %}
+<header class="bg-white shadow-md p-4 sticky top-0 z-20">
+    <div class="container mx-auto flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-blue-600">🚗 החיפושים שלי</h1>
+        <div class="flex space-x-4 space-x-reverse">
+            <span class="font-medium">שלום, {{ user.name.split(' ')[0] if user.name else 'משתמש' }}</span>
+            <a href="/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">חזרה לחיפוש</a>
+            <a href="/logout" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-md">התנתק</a>
+        </div>
+    </div>
+</header>
+
+<main class="container mx-auto px-4 py-8">
+
+    <!-- סינון תאריך -->
+    <div class="mb-8">
+        <h2 class="text-xl font-semibold mb-4">סינון תוצאה לפי תאריך</h2>
+        <form method="GET" action="/dashboard" class="flex items-center space-x-4 space-x-reverse">
+            <input type="date" name="from_date" class="border p-2 rounded-md" value="{{ request.args.get('from_date', '') }}">
+            <input type="date" name="to_date" class="border p-2 rounded-md" value="{{ request.args.get('to_date', '') }}">
+            <button type="submit" class="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-md">סנן</button>
+        </form>
+    </div>
+
+    {% if searches %}
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {% for search in searches %}
-                <div class="search-item">
-                    <h3>{{ search.make | title }} {{ search.model | title }} ({{ search.year }})</h3>
-                    <div class="timestamp">חיפוש מיום: {{ search.timestamp }}</div>
-                    <div class="score">ציון: {{ search.data.base_score_calculated }} / 100</div>
-                    <p>{{ search.data.reliability_summary }}</p>
-                    </div>
-            {% endfor %}
-        {% else %}
-            <div class="login-prompt">
-                <h3>עדיין לא ביצעת חיפושים</h3>
-                <p>חזור לדף הבית כדי לבצע את החיפוש הראשון שלך.</p>
-                <a href="/" class="user-button login">חזרה לחיפוש</a>
+            <div class="bg-white p-6 rounded-lg shadow-lg fade-in" id="search-{{ search.id }}">
+                <h3 class="text-xl font-bold text-blue-700">{{ search.make | title }} {{ search.model | title }} ({{ search.year }})</h3>
+                <p class="text-sm text-gray-500 mt-1">חיפוש מתאריך: {{ search.timestamp }}</p>
+
+                <div class="mt-4">
+                    <p class="text-3xl font-extrabold text-blue-600">{{ search.data.base_score_calculated }} / 100</p>
+                    <p class="mt-2 text-gray-700 line-clamp-3">{{ search.data.reliability_summary }}</p>
+                </div>
+
+                <div class="flex justify-between mt-4">
+                    <button 
+                        class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-md"
+                        onclick="openModal({{ search.data | tojson }})">
+                        הצג פרטים
+                    </button>
+                    <button 
+                        class="bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-md"
+                        onclick="deleteSearch({{ search.id }})">
+                        מחיקה
+                    </button>
+                </div>
             </div>
-        {% endif %}
-    </main>
-    
-    <footer style="text-align: center; padding: 20px; margin-top: 50px; border-top: 1px solid #eee; font-size: 0.9em;">
-        <p>
-            &copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.
-        </p>
-        <p style="margin-top: 10px;">
-            <a href="{{ url_for('privacy') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">מדיניות פרטיות</a> | 
-            <a href="{{ url_for('terms') }}" style="margin: 0 10px; color: #0d6efd; text-decoration: none;">תקנון שימוש</a>
-        </p>
-    </footer>
-    </body>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="text-center py-20">
+            <h3 class="text-xl font-bold mb-4">לא נמצאו תוצאות</h3>
+            <p class="mb-4">חזור לדף הבית כדי לבצע את החיפוש הראשון שלך.</p>
+            <a href="/" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md">חזרה לחיפוש</a>
+        </div>
+    {% endif %}
+</main>
+
+<footer class="text-center py-6 bg-white border-t mt-10 text-sm">
+    <p>&copy; 2025 ידע רכב (yedaarechev). כל הזכויות שמורות.</p>
+    <div class="mt-2">
+        <a href="{{ url_for('privacy') }}" class="text-blue-600 mx-2">מדיניות פרטיות</a>
+        |
+        <a href="{{ url_for('terms') }}" class="text-blue-600 mx-2">תקנון שימוש</a>
+    </div>
+</footer>
+
+<!-- Modal -->
+<div id="json-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center p-6 z-50">
+    <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full p-6 overflow-auto max-h-[90vh]">
+        <h2 class="text-xl font-bold mb-4">📄 נתונים מלאים</h2>
+        <pre id="json-content" class="bg-gray-100 p-4 rounded-md text-sm overflow-x-auto overflow-y-auto max-h-[60vh] whitespace-pre-wrap"></pre>
+        <button class="mt-4 py-2 px-4 bg-red-500 hover:bg-red-600 text-white rounded-md" onclick="closeModal()">סגור</button>
+    </div>
+</div>
+
+<script>
+function openModal(data) {
+    document.getElementById('json-content').textContent = JSON.stringify(data, null, 2);
+    const modal = document.getElementById('json-modal');
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+}
+
+function closeModal() {
+    const modal = document.getElementById('json-modal');
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+}
+
+async function deleteSearch(id) {
+    if (!confirm('למחוק את החיפוש הזה? פעולה זו אינה הפיכה.')) return;
+    const res = await fetch(`/delete-search/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+        document.getElementById(`search-${id}`).remove();
+    } else {
+        alert('שגיאה במחיקת החיפוש.');
+    }
+}
+</script>
+
+</body>
 </html>
