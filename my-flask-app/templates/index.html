@@ -347,7 +347,7 @@
         const rawAuth = `{{ user.is_authenticated | tojson if user is defined and user.is_authenticated is defined else 'false' }}`;
         const rawData = `{{ car_models_data | tojson if car_models_data is defined else '{}' }}`;
 
-        if (rawAuth.includes('{{')) {
+        if (rawAuth.includes('{' + '{')) {
              console.warn("Running in static mode (no Flask backend detected).");
              // מצב סטטי - נתונים לבדיקה
              userIsAuthenticated = false; // שנה ל-true כדי לבדוק מצב מחובר
