@@ -191,11 +191,6 @@ def create_app():
 
     # פונקציה חכמה לבחירת redirect_uri
     def get_redirect_uri():
-        """
-        Returns the correct OAuth redirect URI for Google login.
-        Uses yedaarechev.com only when it's actually being used
-        and the SSL is active, otherwise fallback to Railway.
-        """
         domain = request.host or ""
         if "yedaarechev.com" in domain:
             uri = "https://yedaarechev.com/auth"
