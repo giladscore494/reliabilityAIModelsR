@@ -21,8 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Selected make:", selectedMake);
 
             // איפוס שדות תלויים
-            modelSelect.innerHTML = '<option value="">בחר דגם...</option>';
-            yearSelect.innerHTML = '<option value="">בחר יצרן תחילה...</option>';
+            modelSelect.innerHTML = '<option value="">Select Model...</option>';
+            yearSelect.innerHTML = '<option value="">Select Make First...</option>';
             modelSelect.disabled = true;
             yearSelect.disabled = true;
 
@@ -61,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const selectedModel = modelSelect.value;
             console.log("Selected model:", selectedModel);
 
-            yearSelect.innerHTML = '<option value="">בחר שנתון...</option>';
+            yearSelect.innerHTML = '<option value="">Select Year...</option>';
             yearSelect.disabled = true;
 
             if (selectedMake && selectedModel && carModelsData[selectedMake]) {
@@ -70,23 +70,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // ניסיון לחלץ שנתונים בהתאם למבנה הנתונים
                 if (Array.isArray(modelsData)) {
-                     // אם המידע הוא רק רשימת דגמים, אין לנו שנתונים.
-                     // נצטרך להציג טווח שנים גנרי או לבקש מהמשתמש להזין ידנית.
-                     // כפתרון זמני, נציג רשימת שנים גנרית (למשל 2000-2024)
                      console.warn("No specific years data found for model. Using generic range.");
                      for (let y = 2025; y >= 2000; y--) years.push(y);
                 } else if (typeof modelsData === 'object' && modelsData !== null && modelsData[selectedModel]) {
-                     // אם יש מידע ספציפי לשנתונים עבור הדגם
                      years = modelsData[selectedModel];
-                     // וודא שזה מערך
                      if (!Array.isArray(years)) {
                          console.warn("Years data is not an array:", years);
-                         years = []; // או טיפול אחר
+                         years = [];
                      }
                 }
 
                 if (years.length > 0) {
-                    // מיון שנתונים יורד (מהחדש לישן)
                     years.sort((a, b) => b - a);
                     years.forEach(year => {
                         const option = document.createElement('option');
@@ -96,9 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     yearSelect.disabled = false;
                 } else {
-                     // אם לא נמצאו שנתונים, אפשר לאפשר הזנה ידנית או להציג טווח ברירת מחדל
                      console.warn("Could not find years for", selectedModel);
-                     // אופציה: להוסיף שנים גנריות כגיבוי
                      for (let y = 2025; y >= 2000; y--) {
                          const option = document.createElement('option');
                          option.value = y;
@@ -150,6 +142,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(searchData)
                 });
+
+                // בדיקה מקדימה אם התשובה היא בכלל בפורמט JSON
+                const contentType = response.headers.get("content-type");
+                if (!contentType || !contentType.includes("application/json")) {
+                    const text = await response.text();
+                    console.error("Server returned non-JSON response:", text.substring(0, 200)); // הצגת תחילת התגובה השגויה בלוג
+                    throw new Error(`שגיאת שרת (Status ${response.status}). נסה שוב מאוחר יותר.`);
+                }
 
                 if (!response.ok) {
                     const errorData = await response.json();
