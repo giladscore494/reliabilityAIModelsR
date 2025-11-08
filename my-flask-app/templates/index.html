@@ -316,12 +316,15 @@
                 const element = document.getElementById(elementId);
                 if (element) {
                     const text = element.textContent.trim();
-                    // אם הטקסט מתחיל ב-{{, זה אומר שהשרת לא רינדר אותו, ולכן מחזירים ברירת מחדל
-                    if (text.startsWith('{{')) return defaultValue;
+                    // אם הטקסט מתחיל ב-{% או {{, זה אומר שהשרת לא רינדר אותו
+                    if (text.startsWith('{%') || text.startsWith('{{')) {
+                        console.warn(`Template tag found in #${elementId}, using default value.`);
+                        return defaultValue;
+                    }
                     return JSON.parse(text);
                 }
             } catch (e) {
-                console.error(`Error parsing data from #${elementId}:`, e);
+                console.warn(`Failed to parse data from #${elementId}, using default value:`, e);
             }
             return defaultValue;
         }
