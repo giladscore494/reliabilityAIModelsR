@@ -12,7 +12,7 @@
 
     <style>
         /* סגנונות בסיס */
-        :root { --bg-dark: #0F172A; --text-light: #E2E8F0; --primary: #6366F1; }
+        :root { --bg-dark: #0F172A; --text-light: #E2E8F0; --primary: #6366F1; --secondary:#EC4899; }
         body {
             font-family: 'Heebo', system-ui, -apple-system, sans-serif;
             background-color: var(--bg-dark);
@@ -20,6 +20,7 @@
             margin: 0;
             overflow-x: hidden;
         }
+
         /* אנימציות */
         .fade-in { animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
@@ -38,12 +39,27 @@
         }
         @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* טאבים */
+        /* טאבים — גרסה ללא @apply (תואם Tailwind CDN) */
         .tab-btn {
-            @apply px-4 py-2 font-medium text-sm rounded-t-lg border-b-2 border-transparent hover:text-indigo-400 hover:border-indigo-500/30 transition-all duration-200;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            font-size: 0.875rem; /* text-sm */
+            border-bottom: 2px solid transparent;
+            border-top-left-radius: 0.5rem;
+            border-top-right-radius: 0.5rem;
+            background: transparent;
+            color: #cbd5e1; /* slate-300/200 */
+            transition: all 0.2s ease;
+            margin-inline-end: 0.5rem;
+        }
+        .tab-btn:hover {
+            color: #818cf8; /* indigo-400 */
+            border-color: rgba(99,102,241,0.3); /* indigo-500/30 */
         }
         .tab-btn.active {
-            @apply text-indigo-400 border-indigo-500 bg-indigo-500/10;
+            color: #818cf8;                /* text-indigo-400 */
+            border-color: #6366F1;         /* border-indigo-500 */
+            background: rgba(99,102,241,0.10); /* bg-indigo-500/10 */
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
@@ -316,15 +332,12 @@
                 const element = document.getElementById(elementId);
                 if (element) {
                     const text = element.textContent.trim();
-                    // אם הטקסט מתחיל ב-{% או {{, זה אומר שהשרת לא רינדר אותו
-                    if (text.startsWith('{%') || text.startsWith('{{')) {
-                        console.warn(`Template tag found in #${elementId}, using default value.`);
-                        return defaultValue;
-                    }
+                    /* אם הטקסט מתחיל ב-{{, זה אומר שהשרת לא רינדר אותו, ולכן מחזירים ברירת מחדל */
+                    if (text.startsWith('{{')) return defaultValue;
                     return JSON.parse(text);
                 }
             } catch (e) {
-                console.warn(`Failed to parse data from #${elementId}, using default value:`, e);
+                console.error(`Error parsing data from #${elementId}:`, e);
             }
             return defaultValue;
         }
