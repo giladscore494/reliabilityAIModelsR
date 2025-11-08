@@ -1,8 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.2.0 (Dashboard Modal + Details Route + Same Landing Styling)
-# With Dynamic Google OAuth Redirect URI (yedaarechev.com / Railway)
+# v7.2.0 (With Dashboard Details Route + Fixes)
 # ===================================================================
 
 import os, re, json, traceback
@@ -10,7 +9,7 @@ import time as pytime
 from typing import Optional, Tuple, Any, Dict
 from datetime import datetime, time, timedelta
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for, abort
+from flask import Flask, render_template, request, jsonify, redirect, url_for
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
@@ -20,6 +19,7 @@ from authlib.integrations.flask_client import OAuth
 from werkzeug.middleware.proxy_fix import ProxyFix
 from json_repair import repair_json
 import google.generativeai as genai
+import pandas as pd
 
 # ==================================
 # === 1. יצירת אובייקטים גלובליים ===
@@ -213,7 +213,9 @@ def create_app():
     db.init_app(app)
     login_manager.init_app(app)
     oauth.init_app(app)
-    login_manager.login_view = 'index'
+
+    # 🛠️ FIX: לא להפנות לדף index בטעות
+    login_manager.login_view = 'login'
 
     # Gemini key
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
@@ -233,7 +235,9 @@ def create_app():
         claims_options={'iss': {'values': ['https://accounts.google.com', 'accounts.google.com']}}
     )
 
-    # ===== Routes =====
+    # ------------------
+    # ===== ROUTES =====
+    # ------------------
     @app.route('/')
     def index():
         return render_template('index.html',
@@ -285,7 +289,6 @@ def create_app():
     def terms():
         return render_template('terms.html', user=current_user)
 
-    # ===== Dashboard =====
     @app.route('/dashboard')
     @login_required
     def dashboard():
@@ -295,46 +298,44 @@ def create_app():
             ).order_by(SearchHistory.timestamp.desc()).all()
             searches_data = []
             for s in user_searches:
-                try:
-                    parsed = json.loads(s.result_json)
-                except Exception:
-                    parsed = {}
                 searches_data.append({
                     "id": s.id,
                     "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
                     "make": s.make, "model": s.model, "year": s.year,
-                    "mileage_range": s.mileage_range,
-                    "fuel_type": s.fuel_type,
-                    "transmission": s.transmission,
-                    "data": parsed
+                    "mileage_range": s.mileage_range or '',
+                    "fuel_type": s.fuel_type or '',
+                    "transmission": s.transmission or '',
+                    "data": json.loads(s.result_json)
                 })
             return render_template('dashboard.html', searches=searches_data, user=current_user)
         except Exception as e:
             print(f"[DASH] ❌ {e}")
             return redirect(url_for('index'))
 
-    # פרטי חיפוש ב-JSON (למודאל)
+    # ✅ NEW ROUTE: שליפת פרטים לדשבורד (AJAX)
     @app.route('/search-details/<int:search_id>')
     @login_required
-    def search_details(search_id: int):
-        s = SearchHistory.query.get_or_404(search_id)
-        if s.user_id != current_user.id:
-            abort(403)
+    def search_details(search_id):
         try:
-            payload = json.loads(s.result_json)
-        except Exception:
-            payload = {}
-        meta = {
-            "id": s.id,
-            "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
-            "make": s.make, "model": s.model, "year": s.year,
-            "mileage_range": s.mileage_range,
-            "fuel_type": s.fuel_type,
-            "transmission": s.transmission
-        }
-        return jsonify({"meta": meta, "data": payload})
+            s = SearchHistory.query.filter_by(id=search_id, user_id=current_user.id).first()
+            if not s:
+                return jsonify({"error": "לא נמצא רישום מתאים"}), 404
 
-    # ===== Analyze =====
+            meta = {
+                "id": s.id,
+                "timestamp": s.timestamp.strftime("%d/%m/%Y %H:%M"),
+                "make": s.make.title(),
+                "model": s.model.title(),
+                "year": s.year,
+                "mileage_range": s.mileage_range,
+                "fuel_type": s.fuel_type,
+                "transmission": s.transmission,
+            }
+            return jsonify({"meta": meta, "data": json.loads(s.result_json)})
+        except Exception as e:
+            print(f"[DETAILS] ❌ {e}")
+            return jsonify({"error": "שגיאת שרת בשליפת נתוני חיפוש"}), 500
+
     @app.route('/analyze', methods=['POST'])
     @login_required
     def analyze_car():
@@ -350,7 +351,7 @@ def create_app():
             final_fuel = str(data.get('fuel_type'))
             final_trans = str(data.get('transmission'))
             if not (final_make and final_model and final_year):
-                return jsonify({"error": "שגיאת קלט (שלב 0): נא למלא יצרן, דגם ושנה."}), 400
+                return jsonify({"error": "שגיאת קלט (שלב 0): נא למלא יצרן, דגם ושנה"}), 400
         except Exception as e:
             return jsonify({"error": f"שגיאת קלט (שלב 0): {str(e)}"}), 400
 
