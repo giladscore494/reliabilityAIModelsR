@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.1.0 (Final Code with Legal Routes + 18+ front-gate in UI)
+# v7.2.0 (Dashboard Modal + Details Route + Same Landing Styling)
 # With Dynamic Google OAuth Redirect URI (yedaarechev.com / Railway)
 # ===================================================================
 
@@ -10,7 +10,7 @@ import time as pytime
 from typing import Optional, Tuple, Any, Dict
 from datetime import datetime, time, timedelta
 
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, abort
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import (
     LoginManager, UserMixin, login_user, logout_user,
@@ -20,7 +20,6 @@ from authlib.integrations.flask_client import OAuth
 from werkzeug.middleware.proxy_fix import ProxyFix
 from json_repair import repair_json
 import google.generativeai as genai
-import pandas as pd
 
 # ==================================
 # === 1. יצירת אובייקטים גלובליים ===
@@ -234,7 +233,7 @@ def create_app():
         claims_options={'iss': {'values': ['https://accounts.google.com', 'accounts.google.com']}}
     )
 
-    # Routes
+    # ===== Routes =====
     @app.route('/')
     def index():
         return render_template('index.html',
@@ -286,6 +285,7 @@ def create_app():
     def terms():
         return render_template('terms.html', user=current_user)
 
+    # ===== Dashboard =====
     @app.route('/dashboard')
     @login_required
     def dashboard():
@@ -295,16 +295,46 @@ def create_app():
             ).order_by(SearchHistory.timestamp.desc()).all()
             searches_data = []
             for s in user_searches:
+                try:
+                    parsed = json.loads(s.result_json)
+                except Exception:
+                    parsed = {}
                 searches_data.append({
+                    "id": s.id,
                     "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
                     "make": s.make, "model": s.model, "year": s.year,
-                    "data": json.loads(s.result_json)
+                    "mileage_range": s.mileage_range,
+                    "fuel_type": s.fuel_type,
+                    "transmission": s.transmission,
+                    "data": parsed
                 })
             return render_template('dashboard.html', searches=searches_data, user=current_user)
         except Exception as e:
             print(f"[DASH] ❌ {e}")
             return redirect(url_for('index'))
 
+    # פרטי חיפוש ב-JSON (למודאל)
+    @app.route('/search-details/<int:search_id>')
+    @login_required
+    def search_details(search_id: int):
+        s = SearchHistory.query.get_or_404(search_id)
+        if s.user_id != current_user.id:
+            abort(403)
+        try:
+            payload = json.loads(s.result_json)
+        except Exception:
+            payload = {}
+        meta = {
+            "id": s.id,
+            "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
+            "make": s.make, "model": s.model, "year": s.year,
+            "mileage_range": s.mileage_range,
+            "fuel_type": s.fuel_type,
+            "transmission": s.transmission
+        }
+        return jsonify({"meta": meta, "data": payload})
+
+    # ===== Analyze =====
     @app.route('/analyze', methods=['POST'])
     @login_required
     def analyze_car():
