@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>yedaarechevAI - בדיקת אמינות רכב ב-AI</title>
 
-    <!-- ספריות חיצוניות -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -71,7 +70,6 @@
 </head>
 <body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased selection:bg-primary/30 selection:text-white">
 
-    <!-- NAVBAR -->
     <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
             <a href="/" class="flex items-center space-x-2 space-x-reverse group transition duration-300">
@@ -102,7 +100,6 @@
         </div>
     </header>
 
-    <!-- MAIN -->
     <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col items-center overflow-hidden">
         <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none"
              style="background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, rgba(15,23,42,0) 70%);"></div>
@@ -186,7 +183,7 @@
                     </h4>
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div class="space-y-2">
-                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">מד אוץ (ק"מ)</label>
+                            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">קילומטראז'</label>
                             <select id="mileage_range" name="mileage_range" class="w-full bg-slate-900/50 border-slate-700 rounded-xl text-sm focus:ring-primary">
                                 <option>עד 50,000 ק"מ</option>
                                 <option>50,000 - 100,000 ק"מ</option>
@@ -261,7 +258,6 @@
             {% endif %}
         </div>
 
-        <!-- תוצאות -->
         <div id="results-container" class="hidden w-full max-w-5xl mt-16 fade-in delay-300">
             <div class="bg-dark-lighter/80 backdrop-blur-xl p-6 md:p-8 rounded-[2rem] border border-slate-700/50 shadow-2xl text-slate-200">
                 <div id="reliability-score-container" class="flex flex-col items-center justify-center mb-10 text-center"></div>
@@ -273,7 +269,6 @@
                     <button class="tab-btn" onclick="window.openTab(event, 'competitors')">🆚 מתחרים</button>
                 </div>
 
-                <!-- כאן השינוי: מבנה שמוכן להסבר פשוט כברירת מחדל + הרחבה מקצועית -->
                 <div id="summary" class="tab-content active prose prose-invert max-w-none">
                     <div class="space-y-4">
                         <h3 class="text-xl font-bold text-white">סיכום אמינות – הסבר פשוט</h3>
@@ -301,13 +296,12 @@
         </div>
     </main>
 
-    <!-- FOOTER -->
     <footer class="mt-32 py-12 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
         <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
             <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition-opacity">
                 <span class="font-bold text-white">yedaarechevAI</span>
             </div>
-            <p class="text-slate-500 text-sm">© 2025 ידע רכב. פותח בגאווה בישראל 🇮🇱.</p>
+            <p class="text-slate-500 text-sm">© 2025 ידע רכב.</p>
             <div class="flex gap-6 text-sm font-medium">
                 <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition-colors">מדיניות פרטיות</a>
                 <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition-colors">תקנון שימוש</a>
@@ -315,11 +309,9 @@
         </div>
     </footer>
 
-    <!-- נתונים ל-JS (בטוח ל-Jinja) -->
     <script type="application/json" id="auth-data">{% if user.is_authenticated %}true{% else %}false{% endif %}</script>
     <script type="application/json" id="car-data">{{ car_models_data | tojson | safe }}</script>
 
-    <!-- הסקריפט הראשי (חיצוני, בלי Jinja) -->
     <script src="/static/script.js"></script>
 </body>
 </html>
