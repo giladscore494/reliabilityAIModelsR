@@ -2,7 +2,7 @@
 <html lang="he" dir="rtl" class="scroll-smooth">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
   <title>החיפושים שלי – yedaarechevAI</title>
 
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
@@ -24,41 +24,46 @@
     .btn:hover{ filter:brightness(1.05) }
     .backdrop{ backdrop-filter:saturate(130%) blur(8px) }
 
-    /* --- FIX: Modal Styles --- */
-    .modal-mask{
-      position:fixed;
-      inset:0;
-      background:rgba(2,6,23,.85); /* קצת יותר כהה */
-      display:none; /* נפתח ע"י JS ב-flex */
-      align-items:center;
-      justify-content:center;
-      z-index:60;
-      padding: 10px; /* רווח קטן מהקצוות בנייד */
+    /* --- FIX: Modal Styles (תיקון לנייד) --- */
+    .modal-mask {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(2, 6, 23, 0.9); /* כהה יותר */
+      display: none; /* JS הופך את זה ל-flex */
+      align-items: center;     /* מירכוז אנכי */
+      justify-content: center; /* מירכוז אופקי */
+      z-index: 9999;           /* מעל הכל */
+      padding: 15px;           /* רווח בטוח מקצוות המסך בנייד */
+      backdrop-filter: blur(5px);
     }
     
-    .modal{
-      /* תיקון לנייד: */
-      width: 95%; 
-      max-width: 900px;
-      max-height: 90vh; /* שלא יהיה גבוה יותר מהמסך */
+    .modal {
+      width: 100%;             /* תופס את כל הרוחב הזמין בתוך ה-padding */
+      max-width: 800px;        /* הגבלה למחשב */
+      max-height: 85vh;        /* גובה מקסימלי כדי לא לחרוג מהמסך */
       
-      display: flex;       /* מבנה גמיש */
-      flex-direction: column; /* מלמעלה למטה */
+      display: flex;
+      flex-direction: column;
       
-      border-radius:1.5rem;
-      border:1px solid rgba(51,65,85,.5);
-      background:rgba(15,23,42, 1); /* רקע אטום לגמרי למודל */
-      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      background: #1e293b;     /* צבע רקע אחיד */
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 1rem;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+      
+      position: relative;
+      margin: auto;            /* מוודא מירכוז נוסף */
+      overflow: hidden;        /* מונע גלילה חיצונית */
     }
 
     /* Scrollbar */
     ::-webkit-scrollbar{ width:6px; height: 6px; }
-    ::-webkit-scrollbar-track{ background:#1e293b }
+    ::-webkit-scrollbar-track{ background:#0f172a }
     ::-webkit-scrollbar-thumb{ background:#475569; border-radius:3px }
     ::-webkit-scrollbar-thumb:hover{ background:#64748b }
 
     /* Tabs */
-    .tab-btn{ padding:.5rem 1rem; font-weight:700; font-size:.9rem; border-bottom:2px solid transparent; color:#cbd5e1; white-space: nowrap; }
+    .tab-btn{ padding:.75rem 1rem; font-weight:700; font-size:.9rem; border-bottom:2px solid transparent; color:#94a3b8; white-space: nowrap; transition: all 0.2s; }
+    .tab-btn:hover { color: #e2e8f0; background: rgba(255,255,255,0.05); }
     .tab-btn.active{ color:#818cf8; border-color:#6366F1; background:rgba(99,102,241,.10) }
   </style>
 
@@ -167,47 +172,48 @@
   </footer>
 
   <div id="modal-mask" class="modal-mask">
-    <div class="modal overflow-hidden">
+    <div class="modal" id="modal-content-box">
       
-      <div class="px-4 py-4 md:px-6 md:py-5 flex items-center justify-between border-b border-slate-800 shrink-0 bg-dark-lighter/50">
-        <h4 id="modal-title" class="text-lg md:text-2xl font-extrabold text-white">פרטי חיפוש</h4>
-        <button id="modal-close" class="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-white/10">
+      <div class="px-4 py-4 md:px-6 md:py-4 flex items-center justify-between border-b border-slate-700/50 shrink-0 bg-dark-lighter">
+        <h4 id="modal-title" class="text-lg md:text-xl font-extrabold text-white">פרטי חיפוש</h4>
+        <button id="modal-close" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-white/10 transition">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M6.225 4.811l.084.073L12 10.575l5.691-5.691a1 1 0 0 1 1.403 1.422L13.425 12l5.67 5.67a1 1 0 0 1-1.31 1.51l-.093-.08L12 13.425l-5.691 5.691a1 1 0 0 1-1.403-1.422L10.575 12l-5.67-5.67a1 1 0 0 1 1.31-1.51z"/></svg>
         </button>
       </div>
 
-      <div class="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto flex-1">
+      <div class="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto flex-1 bg-dark">
         <div class="lg:col-span-1 space-y-4">
-          <div class="card p-4 md:p-5">
+          <div class="card p-4 bg-slate-800/50">
             <div class="text-sm text-slate-400" id="meta-time">—</div>
-            <h5 class="text-xl md:text-2xl font-black text-white mt-1" id="meta-title">—</h5>
+            <h5 class="text-xl md:text-2xl font-black text-white mt-1 leading-tight" id="meta-title">—</h5>
             <div class="mt-4 flex flex-wrap gap-2 text-xs" id="meta-chips"></div>
           </div>
-          <div class="card p-4 md:p-5 flex flex-row lg:flex-col items-center justify-between lg:justify-center gap-4">
+          <div class="card p-4 flex flex-row lg:flex-col items-center justify-between lg:justify-center gap-2 bg-slate-800/50">
             <div class="text-sm font-semibold text-indigo-300">ציון אמינות</div>
-            <div class="text-4xl md:text-5xl font-black" id="score-box">—</div>
+            <div class="text-4xl md:text-5xl font-black text-primary" id="score-box">—</div>
           </div>
         </div>
         
-        <div class="lg:col-span-2 space-y-4 md:space-y-6">
-          <div class="flex flex-wrap border-b border-slate-700 overflow-x-auto pb-1">
+        <div class="lg:col-span-2 space-y-4">
+          <div class="flex flex-wrap border-b border-slate-700/50 gap-1">
             <button class="tab-btn active" data-tab="summary">📄 סיכום</button>
             <button class="tab-btn" data-tab="faults">🔧 תקלות</button>
             <button class="tab-btn" data-tab="costs">💰 עלויות</button>
             <button class="tab-btn" data-tab="competitors">🆚 מתחרים</button>
             <button class="tab-btn" data-tab="sources">🔗 מקורות</button>
           </div>
-          <div id="tab-summary" class="prose prose-invert prose-sm md:prose-base max-w-none"></div>
-          <div id="tab-faults" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
-          <div id="tab-costs" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
-          <div id="tab-competitors" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
-          <div id="tab-sources" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
+          
+          <div id="tab-summary" class="prose prose-invert prose-sm max-w-none fade-in"></div>
+          <div id="tab-faults" class="prose prose-invert prose-sm max-w-none hidden fade-in"></div>
+          <div id="tab-costs" class="prose prose-invert prose-sm max-w-none hidden fade-in"></div>
+          <div id="tab-competitors" class="prose prose-invert prose-sm max-w-none hidden fade-in"></div>
+          <div id="tab-sources" class="prose prose-invert prose-sm max-w-none hidden fade-in"></div>
         </div>
       </div>
 
-      <div class="px-4 py-4 md:px-6 border-t border-slate-800 flex items-center justify-end gap-3 shrink-0 bg-dark-lighter/50">
-        <button id="modal-close-2" class="px-5 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition text-sm md:text-base">סגור</button>
-        <a href="/" class="btn px-6 py-2 rounded-xl text-white font-bold text-sm md:text-base">בדיקה חדשה</a>
+      <div class="px-4 py-3 border-t border-slate-700/50 flex items-center justify-end gap-3 shrink-0 bg-dark-lighter">
+        <button id="modal-close-2" class="px-5 py-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition text-sm">סגור</button>
+        <a href="/" class="btn px-6 py-2 rounded-lg text-white font-bold text-sm shadow-md">בדיקה חדשה</a>
       </div>
     </div>
   </div>
@@ -218,7 +224,8 @@
     function switchTab(tabName) {
       const ids = ["summary","faults","costs","competitors","sources"];
       ids.forEach(n => {
-        document.getElementById("tab-"+n).classList.toggle("hidden", n !== tabName);
+        const el = document.getElementById("tab-"+n);
+        if(el) el.classList.toggle("hidden", n !== tabName);
       });
       document.querySelectorAll(".tab-btn").forEach(b => {
         b.classList.toggle("active", b.dataset.tab === tabName);
@@ -226,29 +233,39 @@
     }
 
     const mask = document.getElementById('modal-mask');
+    const modalContent = document.getElementById('modal-content-box');
 
     function openModal() {
       if (mask) {
-        mask.style.display = 'flex'; // Flex is important for centering
-        document.body.style.overflow = 'hidden'; // מונע גלילה של הרקע
+        mask.style.display = 'flex'; // Flex is critical for centering
+        document.body.style.overflow = 'hidden'; // מונע גלילה ברקע
       }
     }
 
     function closeModal() {
       if (mask) {
         mask.style.display = 'none';
-        document.body.style.overflow = ''; // מחזיר גלילה לרקע
+        document.body.style.overflow = ''; // מחזיר גלילה
       }
     }
 
+    // סגירה בכפתורים
     const closeButtons = [document.getElementById('modal-close'), document.getElementById('modal-close-2')];
     closeButtons.forEach(btn => {
       if (btn) btn.addEventListener('click', closeModal);
     });
+
+    // סגירה בלחיצה על הרקע הכהה (אבל לא על המודל עצמו)
     if (mask) {
       mask.addEventListener('click', (e) => {
         if (e.target === mask) closeModal();
       });
+    }
+    // מניעת סגירה בלחיצה בתוך המודל
+    if(modalContent) {
+        modalContent.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
     }
 
     // הפעלת טאבים
@@ -268,6 +285,11 @@
       btn.addEventListener('click', async () => {
         const id = btn.dataset.id;
         try {
+          // איפוס לפני טעינה
+          document.getElementById('tab-summary').innerHTML = '<div class="animate-pulse flex space-x-4"><div class="flex-1 space-y-4 py-1"><div class="h-4 bg-slate-700 rounded w-3/4"></div><div class="h-4 bg-slate-700 rounded"></div></div></div>';
+          
+          openModal(); // פתח מיד כדי שהמשתמש יראה טעינה
+
           const res = await fetch(`/search-details/${id}`);
           if (!res.ok) throw new Error('שגיאה בשליפת פרטים');
           const payload = await res.json();
@@ -284,7 +306,7 @@
           if (meta.fuel_type)    chips.push(`דלק: ${meta.fuel_type}`);
           if (meta.transmission) chips.push(`גיר: ${meta.transmission}`);
           document.getElementById('meta-chips').innerHTML =
-            chips.map(c => `<span class="chip px-3 py-1 rounded-full text-indigo-300">${c}</span>`).join(' ');
+            chips.map(c => `<span class="chip px-2 py-1 text-[10px] rounded-full text-indigo-300 border border-indigo-500/30">${c}</span>`).join(' ');
 
           // ציון
           let score = 0;
@@ -304,61 +326,62 @@
             faultsHtml += '</ul>';
           }
           if (Array.isArray(data.issues_with_costs) && data.issues_with_costs.length) {
-            faultsHtml += '<h4 class="text-xl font-bold mt-6 mb-3">עלויות תיקון משוערות:</h4><ul class="space-y-3">';
+            faultsHtml += '<h4 class="text-lg font-bold mt-6 mb-3 text-white">עלויות תיקון משוערות:</h4><ul class="space-y-3">';
             data.issues_with_costs.forEach(item => {
               const cost = (item && item.avg_cost_ILS != null) ? item.avg_cost_ILS : '—';
               const issue = (item && item.issue) ? item.issue : '—';
-              faultsHtml += `<li class="bg-slate-800/50 p-3 rounded-lg flex justify-between items-center"><span>${issue}</span><span class="font-bold text-primary">${cost} ₪</span></li>`;
+              faultsHtml += `<li class="bg-slate-700/30 p-3 rounded-lg flex justify-between items-center text-sm"><span>${issue}</span><span class="font-bold text-primary mr-2">${cost} ₪</span></li>`;
             });
             faultsHtml += '</ul>';
           }
-          document.getElementById('tab-faults').innerHTML = faultsHtml || '<p class="text-slate-400">—</p>';
+          document.getElementById('tab-faults').innerHTML = faultsHtml || '<p class="text-slate-400">אין מידע על תקלות.</p>';
 
           let costsHtml = '';
           if (data.avg_repair_cost_ILS) {
-            costsHtml += `<h4 class="text-xl font-bold mb-3">עלות תחזוקה שנתית ממוצעת:</h4>
+            costsHtml += `<h4 class="text-lg font-bold mb-2 text-white">עלות תחזוקה שנתית ממוצעת:</h4>
                           <p class="text-3xl font-black text-primary mb-6">${data.avg_repair_cost_ILS} ₪</p>`;
           }
           if (data.maintenance_cost_score) {
             costsHtml += `<p>ציון עלויות אחזקה: <strong>${data.maintenance_cost_score}/10</strong></p>`;
           }
-          document.getElementById('tab-costs').innerHTML = costsHtml || '<p class="text-slate-400">—</p>';
+          document.getElementById('tab-costs').innerHTML = costsHtml || '<p class="text-slate-400">אין מידע על עלויות.</p>';
 
           let compHtml = '';
           if (Array.isArray(data.common_competitors_brief) && data.common_competitors_brief.length) {
-            compHtml += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
+            compHtml += '<div class="grid grid-cols-1 gap-4">';
             data.common_competitors_brief.forEach(c => {
               const m = (c && c.model) ? c.model : '—';
               const b = (c && c.brief_summary) ? c.brief_summary : '';
-              compHtml += `<div class="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50">
-                            <div class="font-bold text-white mb-1">${m}</div>
-                            <div class="text-slate-300 text-sm">${b}</div>
-                          </div>`;
+              compHtml += `<div class="p-3 rounded-xl bg-slate-700/30 border border-slate-600/30">
+                             <div class="font-bold text-white mb-1">${m}</div>
+                             <div class="text-slate-300 text-xs leading-relaxed">${b}</div>
+                           </div>`;
             });
             compHtml += '</div>';
           }
-          document.getElementById('tab-competitors').innerHTML = compHtml || '<p class="text-slate-400">—</p>';
+          document.getElementById('tab-competitors').innerHTML = compHtml || '<p class="text-slate-400">אין מתחרים להשוואה.</p>';
 
           let srcHtml = '';
           if (Array.isArray(data.sources) && data.sources.length) {
-            srcHtml += '<ul class="list-disc pr-5 space-y-2">';
+            srcHtml += '<ul class="list-disc pr-5 space-y-2 break-all">';
             data.sources.forEach(s => {
               const txt = String(s || '').trim();
               if (/^https?:\/\//i.test(txt)) {
-                srcHtml += `<li><a class="text-primary underline underline-offset-4" href="${txt}" target="_blank" rel="noopener">קישור</a></li>`;
+                srcHtml += `<li><a class="text-primary underline underline-offset-4" href="${txt}" target="_blank" rel="noopener">מקור מידע</a></li>`;
               } else {
                 srcHtml += `<li>${txt}</li>`;
               }
             });
             srcHtml += '</ul>';
           }
-          document.getElementById('tab-sources').innerHTML = srcHtml || '<p class="text-slate-400">—</p>';
+          document.getElementById('tab-sources').innerHTML = srcHtml || '<p class="text-slate-400">אין מקורות.</p>';
 
           switchTab('summary');
-          openModal();
+          
         } catch (err) {
           alert('שגיאה בטעינת הפרטים. נסה שוב מאוחר יותר.');
           console.error(err);
+          closeModal();
         }
       });
     });
