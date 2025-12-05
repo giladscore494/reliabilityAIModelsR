@@ -19,6 +19,9 @@
     const userIsAuthenticated = getSafeData("auth-data", false);
     const carModelsData = getSafeData("car-data", {});
 
+    // מצב גלובלי לטוגל של הסיכום המעמיק
+    let summaryDetailedOpen = false;
+
     // חשיפה לגלובלי כי כפתורי הטאבים קוראים מה-HTML
     window.openTab = function (evt, tabName) {
         document.querySelectorAll(".tab-content").forEach(tc => tc.classList.remove("active"));
@@ -57,12 +60,53 @@
             <h3 class="text-2xl font-bold ${scoreColor.replace('bg-', 'text-')}">${scoreText}</h3>
         `;
 
-        if (data && data.reliability_summary) {
-            document.getElementById('summary').innerHTML = marked.parse(data.reliability_summary);
-        } else if (data && data.response) {
-            document.getElementById('summary').innerHTML = marked.parse(data.response);
+        // --- סיכום פשוט כברירת מחדל + אפשרות להרחבה מקצועית ---
+        const simpleEl = document.getElementById('summary-simple-text');
+        const detailedEl = document.getElementById('summary-detailed-text');
+        const toggleBtn = document.getElementById('summary-toggle-btn');
+        const detailedBlock = document.getElementById('summary-detailed-block');
+
+        let simpleText = "";
+        let detailedText = "";
+
+        if (data) {
+            if (data.reliability_summary_simple) {
+                simpleText = data.reliability_summary_simple;
+            }
+            if (data.reliability_summary) {
+                detailedText = data.reliability_summary;
+            } else if (data.response) {
+                // fallback: אם המודל החזיר רק response
+                detailedText = data.response;
+            }
+            // אם אין טקסט פשוט אבל יש הסבר מקצועי – נשתמש בו כפשוט
+            if (!simpleText && detailedText) {
+                simpleText = detailedText;
+            }
         }
 
+        if (simpleEl) {
+            simpleEl.innerHTML = simpleText ? marked.parse(simpleText) : "";
+        }
+        if (detailedEl) {
+            detailedEl.innerHTML = detailedText ? marked.parse(detailedText) : "";
+        }
+
+        // ניהול מצב כפתור ההרחבה
+        summaryDetailedOpen = false;
+        if (toggleBtn && detailedBlock) {
+            if (detailedText) {
+                toggleBtn.classList.remove('hidden');
+                detailedBlock.classList.add('hidden');
+                toggleBtn.textContent = 'להרחבה מקצועית';
+            } else {
+                // אין הסבר מקצועי – לא מציגים את הכפתור ולא את הבלוק
+                toggleBtn.classList.add('hidden');
+                detailedBlock.classList.add('hidden');
+            }
+        }
+
+        // --- תקלות נפוצות ---
         if (data && Array.isArray(data.common_issues)) {
             let faultsHtml = '<ul class="list-disc pr-5 space-y-2">';
             data.common_issues.forEach(issue => { faultsHtml += `<li>${issue}</li>`; });
@@ -80,6 +124,7 @@
             document.getElementById('faults').innerHTML = faultsHtml;
         }
 
+        // --- עלויות אחזקה ---
         if (data && data.avg_repair_cost_ILS != null) {
             const maintenanceScore = (data.maintenance_cost_score != null) ? `<p>ציון עלויות אחזקה: <strong>${data.maintenance_cost_score}/10</strong></p>` : '';
             document.getElementById('costs').innerHTML = `
@@ -89,6 +134,7 @@
             `;
         }
 
+        // --- מתחרים ---
         if (data && Array.isArray(data.common_competitors_brief)) {
             let compHtml = '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
             data.common_competitors_brief.forEach(comp => {
@@ -115,6 +161,23 @@
         const resultsContainer = document.getElementById('results-container');
         const legalConfirm = document.getElementById('legal-confirm');
         const legalError = document.getElementById('legal-error');
+
+        const toggleBtn = document.getElementById('summary-toggle-btn');
+        const detailedBlock = document.getElementById('summary-detailed-block');
+
+        // טוגל בין סיכום פשוט לסיכום מקצועי
+        if (toggleBtn && detailedBlock) {
+            toggleBtn.addEventListener('click', () => {
+                summaryDetailedOpen = !summaryDetailedOpen;
+                if (summaryDetailedOpen) {
+                    detailedBlock.classList.remove('hidden');
+                    toggleBtn.textContent = 'להסבר קצר';
+                } else {
+                    detailedBlock.classList.add('hidden');
+                    toggleBtn.textContent = 'להרחבה מקצועית';
+                }
+            });
+        }
 
         // 1) תלות יצרן → דגם
         if (makeSelect && modelSelect && yearSelect) {
