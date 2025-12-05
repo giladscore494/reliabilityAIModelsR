@@ -17,12 +17,6 @@
       background:var(--bg-dark);
       color:var(--text-light);
     }
-    /* נועל את המסך כשמודאל פתוח (למובייל ולדסקטופ) */
-    body.modal-open{
-      overflow:hidden !important;
-      height:100vh;
-      touch-action:none;
-    }
     .fade-in{ animation:fadeIn .6s cubic-bezier(.4,0,.2,1) forwards; opacity:0 }
     @keyframes fadeIn{ from{opacity:0; transform:translateY(20px)} to{opacity:1; transform:none} }
     .card{ background:rgba(30,41,59,.6); border:1px solid rgba(51,65,85,.5); border-radius:1.75rem; }
@@ -30,11 +24,32 @@
     .btn{ background-image:linear-gradient(90deg,var(--primary),var(--secondary)); }
     .btn:hover{ filter:brightness(1.05) }
     .backdrop{ backdrop-filter:saturate(130%) blur(8px) }
+
     /* Modal */
-    .modal-mask{ position:fixed; inset:0; background:rgba(2,6,23,.65); display:none; align-items:center; justify-content:center; z-index:60 }
-    .modal{ width:min(100%,900px); border-radius:1.75rem; border:1px solid rgba(51,65,85,.5); background:rgba(15,23,42,.96) }
+    .modal-mask{
+      position:fixed;
+      inset:0;
+      background:rgba(2,6,23,.65);
+      display:none;
+      align-items:center;
+      justify-content:center;
+      z-index:60;
+      overflow-y:auto; /* גלילה בתוך שכבת המודאל */
+    }
+    .modal{
+      width:min(100%,900px);
+      border-radius:1.75rem;
+      border:1px solid rgba(51,65,85,.5);
+      background:rgba(15,23,42,.96);
+      margin:1.5rem auto;
+    }
+
     /* Scrollbar */
-    ::-webkit-scrollbar{ width:10px } ::-webkit-scrollbar-track{ background:#1e293b } ::-webkit-scrollbar-thumb{ background:#475569; border-radius:5px } ::-webkit-scrollbar-thumb:hover{ background:#64748b }
+    ::-webkit-scrollbar{ width:10px }
+    ::-webkit-scrollbar-track{ background:#1e293b }
+    ::-webkit-scrollbar-thumb{ background:#475569; border-radius:5px }
+    ::-webkit-scrollbar-thumb:hover{ background:#64748b }
+
     /* Tabs */
     .tab-btn{ padding:.5rem 1rem; font-weight:700; font-size:.9rem; border-bottom:2px solid transparent; color:#cbd5e1 }
     .tab-btn.active{ color:#818cf8; border-color:#6366F1; background:rgba(99,102,241,.10) }
@@ -207,20 +222,17 @@
       });
     }
 
-    // פתיחה/סגירה של מודאל + נעילת גוף הדף
     const mask = document.getElementById('modal-mask');
 
     function openModal() {
       if (mask) {
         mask.style.display = 'flex';
-        document.body.classList.add('modal-open');
       }
     }
 
     function closeModal() {
       if (mask) {
         mask.style.display = 'none';
-        document.body.classList.remove('modal-open');
       }
     }
 
@@ -277,11 +289,9 @@
           document.getElementById('score-box').textContent = (score > 0 ? Math.round(score) : '—');
 
           // תוכן טאבים
-          // סיכום
           const summary = data.reliability_summary || data.response || '—';
           document.getElementById('tab-summary').innerHTML = md(summary);
 
-          // תקלות
           let faultsHtml = '';
           if (Array.isArray(data.common_issues) && data.common_issues.length) {
             faultsHtml += '<ul class="list-disc pr-5 space-y-2">';
@@ -299,7 +309,6 @@
           }
           document.getElementById('tab-faults').innerHTML = faultsHtml || '<p class="text-slate-400">—</p>';
 
-          // עלויות
           let costsHtml = '';
           if (data.avg_repair_cost_ILS) {
             costsHtml += `<h4 class="text-xl font-bold mb-3">עלות תחזוקה שנתית ממוצעת:</h4>
@@ -310,7 +319,6 @@
           }
           document.getElementById('tab-costs').innerHTML = costsHtml || '<p class="text-slate-400">—</p>';
 
-          // מתחרים
           let compHtml = '';
           if (Array.isArray(data.common_competitors_brief) && data.common_competitors_brief.length) {
             compHtml += '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">';
@@ -326,7 +334,6 @@
           }
           document.getElementById('tab-competitors').innerHTML = compHtml || '<p class="text-slate-400">—</p>';
 
-          // מקורות
           let srcHtml = '';
           if (Array.isArray(data.sources) && data.sources.length) {
             srcHtml += '<ul class="list-disc pr-5 space-y-2">';
@@ -342,7 +349,6 @@
           }
           document.getElementById('tab-sources').innerHTML = srcHtml || '<p class="text-slate-400">—</p>';
 
-          // הצג מודאל
           switchTab('summary');
           openModal();
         } catch (err) {
