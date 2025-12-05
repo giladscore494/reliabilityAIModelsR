@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>החיפושים שלי – yedaarechevAI</title>
 
-  <!-- Tailwind + Marked + Heebo -->
   <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet"/>
@@ -25,33 +24,41 @@
     .btn:hover{ filter:brightness(1.05) }
     .backdrop{ backdrop-filter:saturate(130%) blur(8px) }
 
-    /* Modal */
+    /* --- FIX: Modal Styles --- */
     .modal-mask{
       position:fixed;
       inset:0;
-      background:rgba(2,6,23,.65);
-      display:none;
+      background:rgba(2,6,23,.85); /* קצת יותר כהה */
+      display:none; /* נפתח ע"י JS ב-flex */
       align-items:center;
       justify-content:center;
       z-index:60;
-      overflow-y:auto; /* גלילה בתוך שכבת המודאל */
+      padding: 10px; /* רווח קטן מהקצוות בנייד */
     }
+    
     .modal{
-      width:min(100%,900px);
-      border-radius:1.75rem;
+      /* תיקון לנייד: */
+      width: 95%; 
+      max-width: 900px;
+      max-height: 90vh; /* שלא יהיה גבוה יותר מהמסך */
+      
+      display: flex;       /* מבנה גמיש */
+      flex-direction: column; /* מלמעלה למטה */
+      
+      border-radius:1.5rem;
       border:1px solid rgba(51,65,85,.5);
-      background:rgba(15,23,42,.96);
-      margin:1.5rem auto;
+      background:rgba(15,23,42, 1); /* רקע אטום לגמרי למודל */
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
     }
 
     /* Scrollbar */
-    ::-webkit-scrollbar{ width:10px }
+    ::-webkit-scrollbar{ width:6px; height: 6px; }
     ::-webkit-scrollbar-track{ background:#1e293b }
-    ::-webkit-scrollbar-thumb{ background:#475569; border-radius:5px }
+    ::-webkit-scrollbar-thumb{ background:#475569; border-radius:3px }
     ::-webkit-scrollbar-thumb:hover{ background:#64748b }
 
     /* Tabs */
-    .tab-btn{ padding:.5rem 1rem; font-weight:700; font-size:.9rem; border-bottom:2px solid transparent; color:#cbd5e1 }
+    .tab-btn{ padding:.5rem 1rem; font-weight:700; font-size:.9rem; border-bottom:2px solid transparent; color:#cbd5e1; white-space: nowrap; }
     .tab-btn.active{ color:#818cf8; border-color:#6366F1; background:rgba(99,102,241,.10) }
   </style>
 
@@ -64,7 +71,6 @@
 </head>
 <body class="min-h-screen flex flex-col">
 
-  <!-- NAV -->
   <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
       <a href="/" class="flex items-center space-x-2 space-x-reverse group">
@@ -83,7 +89,6 @@
     </div>
   </header>
 
-  <!-- MAIN -->
   <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
     <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none"
          style="background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(15,23,42,0) 70%);">
@@ -148,7 +153,6 @@
     {% endif %}
   </main>
 
-  <!-- FOOTER -->
   <footer class="mt-10 py-10 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
     <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
       <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition">
@@ -162,49 +166,48 @@
     </div>
   </footer>
 
-  <!-- MODAL -->
   <div id="modal-mask" class="modal-mask">
-    <div class="modal p-0 overflow-hidden">
-      <div class="px-6 py-5 flex items-center justify-between border-b border-slate-800">
-        <h4 id="modal-title" class="text-xl md:text-2xl font-extrabold text-white">פרטי חיפוש</h4>
+    <div class="modal overflow-hidden">
+      
+      <div class="px-4 py-4 md:px-6 md:py-5 flex items-center justify-between border-b border-slate-800 shrink-0 bg-dark-lighter/50">
+        <h4 id="modal-title" class="text-lg md:text-2xl font-extrabold text-white">פרטי חיפוש</h4>
         <button id="modal-close" class="text-slate-300 hover:text-white p-2 rounded-lg hover:bg-white/10">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M6.225 4.811l.084.073L12 10.575l5.691-5.691a1 1 0 0 1 1.403 1.422L13.425 12l5.67 5.67a1 1 0 0 1-1.31 1.51l-.093-.08L12 13.425l-5.691 5.691a1 1 0 0 1-1.403-1.422L10.575 12l-5.67-5.67a1 1 0 0 1 1.31-1.51z"/></svg>
         </button>
       </div>
 
-      <div class="p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 max-h-[75vh] overflow-y-auto">
-        <!-- צד שמאל -->
+      <div class="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6 overflow-y-auto flex-1">
         <div class="lg:col-span-1 space-y-4">
-          <div class="card p-5">
+          <div class="card p-4 md:p-5">
             <div class="text-sm text-slate-400" id="meta-time">—</div>
-            <h5 class="text-2xl font-black text-white" id="meta-title">—</h5>
+            <h5 class="text-xl md:text-2xl font-black text-white mt-1" id="meta-title">—</h5>
             <div class="mt-4 flex flex-wrap gap-2 text-xs" id="meta-chips"></div>
           </div>
-          <div class="card p-5">
-            <div class="text-sm font-semibold text-indigo-300 mb-2">ציון אמינות</div>
-            <div class="text-5xl font-black" id="score-box">—</div>
+          <div class="card p-4 md:p-5 flex flex-row lg:flex-col items-center justify-between lg:justify-center gap-4">
+            <div class="text-sm font-semibold text-indigo-300">ציון אמינות</div>
+            <div class="text-4xl md:text-5xl font-black" id="score-box">—</div>
           </div>
         </div>
-        <!-- צד ימין -->
-        <div class="lg:col-span-2 space-y-6">
-          <div class="flex flex-wrap border-b border-slate-700 overflow-x-auto">
+        
+        <div class="lg:col-span-2 space-y-4 md:space-y-6">
+          <div class="flex flex-wrap border-b border-slate-700 overflow-x-auto pb-1">
             <button class="tab-btn active" data-tab="summary">📄 סיכום</button>
             <button class="tab-btn" data-tab="faults">🔧 תקלות</button>
             <button class="tab-btn" data-tab="costs">💰 עלויות</button>
             <button class="tab-btn" data-tab="competitors">🆚 מתחרים</button>
             <button class="tab-btn" data-tab="sources">🔗 מקורות</button>
           </div>
-          <div id="tab-summary" class="prose prose-invert max-w-none"></div>
-          <div id="tab-faults" class="prose prose-invert max-w-none hidden"></div>
-          <div id="tab-costs" class="prose prose-invert max-w-none hidden"></div>
-          <div id="tab-competitors" class="prose prose-invert max-w-none hidden"></div>
-          <div id="tab-sources" class="prose prose-invert max-w-none hidden"></div>
+          <div id="tab-summary" class="prose prose-invert prose-sm md:prose-base max-w-none"></div>
+          <div id="tab-faults" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
+          <div id="tab-costs" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
+          <div id="tab-competitors" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
+          <div id="tab-sources" class="prose prose-invert prose-sm md:prose-base max-w-none hidden"></div>
         </div>
       </div>
 
-      <div class="px-6 py-4 border-t border-slate-800 flex items-center justify-end gap-3">
-        <button id="modal-close-2" class="px-5 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition">סגור</button>
-        <a href="/" class="btn px-6 py-2 rounded-xl text-white font-bold">בדיקה חדשה</a>
+      <div class="px-4 py-4 md:px-6 border-t border-slate-800 flex items-center justify-end gap-3 shrink-0 bg-dark-lighter/50">
+        <button id="modal-close-2" class="px-5 py-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 transition text-sm md:text-base">סגור</button>
+        <a href="/" class="btn px-6 py-2 rounded-xl text-white font-bold text-sm md:text-base">בדיקה חדשה</a>
       </div>
     </div>
   </div>
@@ -226,13 +229,15 @@
 
     function openModal() {
       if (mask) {
-        mask.style.display = 'flex';
+        mask.style.display = 'flex'; // Flex is important for centering
+        document.body.style.overflow = 'hidden'; // מונע גלילה של הרקע
       }
     }
 
     function closeModal() {
       if (mask) {
         mask.style.display = 'none';
+        document.body.style.overflow = ''; // מחזיר גלילה לרקע
       }
     }
 
