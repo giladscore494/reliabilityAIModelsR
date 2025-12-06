@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.3.2 (Dashboard Details + Full Car Advisor API + Owner Flag + Template Globals)
+# v7.3.3 (Dashboard Fix + Owner Flag + Car Advisor API)
 # ===================================================================
 
 import os, re, json, traceback
@@ -480,7 +480,7 @@ def create_app():
         email = (getattr(current_user, "email", "") or "").lower()
         return email in OWNER_EMAILS
 
-    # ⭐ גלובלים לטמפלטים: is_logged_in, current_user, is_owner
+    # אפשר להשאיר את זה – לא מזיק, אבל אנחנו גם מעבירים user ידנית
     @app.context_processor
     def inject_template_globals():
         return {
@@ -554,7 +554,9 @@ def create_app():
     def index():
         return render_template(
             'index.html',
-            car_models_data=israeli_car_market_full_compilation
+            car_models_data=israeli_car_market_full_compilation,
+            user=current_user,
+            is_owner=is_owner_user(),
         )
 
     @app.route('/login')
@@ -596,11 +598,19 @@ def create_app():
     # Legal pages
     @app.route('/privacy')
     def privacy():
-        return render_template('privacy.html')
+        return render_template(
+            'privacy.html',
+            user=current_user,
+            is_owner=is_owner_user(),
+        )
 
     @app.route('/terms')
     def terms():
-        return render_template('terms.html')
+        return render_template(
+            'terms.html',
+            user=current_user,
+            is_owner=is_owner_user(),
+        )
 
     @app.route('/dashboard')
     @login_required
@@ -624,7 +634,9 @@ def create_app():
                 })
             return render_template(
                 'dashboard.html',
-                searches=searches_data
+                searches=searches_data,
+                user=current_user,
+                is_owner=is_owner_user(),
             )
         except Exception as e:
             print(f"[DASH] ❌ {e}")
@@ -663,7 +675,9 @@ def create_app():
         user_email = getattr(current_user, "email", "") if current_user.is_authenticated else ""
         return render_template(
             'recommendations.html',
+            user=current_user,
             user_email=user_email,
+            is_owner=is_owner_user(),
         )
 
     # ===========================
