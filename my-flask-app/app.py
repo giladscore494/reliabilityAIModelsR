@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.2.0 (With Dashboard Details Route + Car Advisor API)
+# v7.3.0 (Dashboard Details + Full Car Advisor API)
 # ===================================================================
 
 import os, re, json, traceback
@@ -92,16 +92,21 @@ except Exception as e:
 
 import re as _re
 def normalize_text(s: Any) -> str:
-    if s is None: return ""
+    if s is None:
+        return ""
     s = _re.sub(r"\(.*?\)", " ", str(s)).strip().lower()
     return _re.sub(r"\s+", " ", s)
 
 def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
     m = normalize_text(mileage_range or "")
-    if not m: return 0, None
-    if "200" in m and "+" in m: return -15, "הציון הותאם מטה עקב קילומטראז׳ גבוה מאוד (200K+)."
-    if "150" in m and "200" in m: return -10, "הציון הותאם מטה עקב קילומטראז׳ גבוה (150–200 אלף ק״מ)."
-    if "100" in m and "150" in m: return -5, "הציון הותאם מעט מטה עקב קילומטראז׳ בינוני-גבוה (100–150 אלף ק״מ)."
+    if not m:
+        return 0, None
+    if "200" in m and "+" in m:
+        return -15, "הציון הותאם מטה עקב קילומטראז׳ גבוה מאוד (200K+)."
+    if "150" in m and "200" in m:
+        return -10, "הציון הותאם מטה עקב קילומטראז׳ גבוה (150–200 אלף ק״מ)."
+    if "100" in m and "150" in m:
+        return -5, "הציון הותאם מעט מטה עקב קילומטראז׳ בינוני-גבוה (100–150 אלף ק״מ)."
     return 0, None
 
 def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, Optional[str]]:
@@ -380,7 +385,6 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
         gear_val = str(car.get("gear", "")).strip()
         turbo_val = car.get("turbo")
 
-        # נסה להמיר לעברית ← אנגלית אם צריך
         if fuel_val in fuel_map:
             fuel_norm = fuel_map[fuel_val]
         else:
@@ -414,7 +418,6 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
                 # km per liter
                 annual_energy_cost = (annual_km / avg_fc_num) * fuel_price
 
-        # עלויות נוספות
         def as_float(x):
             try:
                 return float(x)
@@ -430,7 +433,6 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
         else:
             total_annual_cost = None
 
-        # שמירה באנגלית למחשב, אבל נשלח ל-frontend בעברית
         car["annual_energy_cost"] = round(annual_energy_cost, 0) if annual_energy_cost is not None else None
         car["annual_fuel_cost"] = car["annual_energy_cost"]  # תאימות
         car["maintenance_cost"] = round(maintenance_cost, 0)
@@ -523,9 +525,11 @@ def create_app():
     # ------------------
     @app.route('/')
     def index():
-        return render_template('index.html',
-                               car_models_data=israeli_car_market_full_compilation,
-                               user=current_user)
+        return render_template(
+            'index.html',
+            car_models_data=israeli_car_market_full_compilation,
+            user=current_user
+        )
 
     @app.route('/login')
     def login():
@@ -584,7 +588,9 @@ def create_app():
                 searches_data.append({
                     "id": s.id,
                     "timestamp": s.timestamp.strftime('%d/%m/%Y %H:%M'),
-                    "make": s.make, "model": s.model, "year": s.year,
+                    "make": s.make,
+                    "model": s.model,
+                    "year": s.year,
                     "mileage_range": s.mileage_range or '',
                     "fuel_type": s.fuel_type or '',
                     "transmission": s.transmission or '',
@@ -640,7 +646,7 @@ def create_app():
     def advisor_api():
         """
         מקבל profile מה-JS (recommendations.js),
-        בונה user_profile כמו ב-Car Advisor (Streamlit),
+        בונה user_profile מלא כמו ב-Car Advisor (Streamlit),
         קורא ל-Gemini 3 Pro ומחזיר JSON מוכן להצגה.
         """
         try:
@@ -649,16 +655,35 @@ def create_app():
             return jsonify({"error": "קלט JSON לא תקין"}), 400
 
         try:
+            # ---- שלב 1: בסיסי ----
             budget_min = float(payload.get("budget_min", 0))
             budget_max = float(payload.get("budget_max", 0))
             year_min = int(payload.get("year_min", 2000))
             year_max = int(payload.get("year_max", 2025))
+
             fuels_he = payload.get("fuels_he") or []
             gears_he = payload.get("gears_he") or []
             turbo_choice_he = payload.get("turbo_choice_he", "לא משנה")
-            main_use = payload.get("main_use", "").strip()
+
+            # ---- שלב 2: שימוש וסגנון ----
+            main_use = (payload.get("main_use") or "").strip()
             annual_km = int(payload.get("annual_km", 15000))
             driver_age = int(payload.get("driver_age", 21))
+
+            license_years = int(payload.get("license_years", 0))
+            driver_gender = payload.get("driver_gender", "זכר") or "זכר"
+
+            body_style = payload.get("body_style", "כללי") or "כללי"
+            driving_style = payload.get("driving_style", "רגוע ונינוח") or "רגוע ונינוח"
+            seats_choice = payload.get("seats_choice", "5") or "5"
+
+            excluded_colors = payload.get("excluded_colors") or []
+            if isinstance(excluded_colors, str):
+                excluded_colors = [
+                    s.strip() for s in excluded_colors.split(",") if s.strip()
+                ]
+
+            # ---- שלב 3: סדר עדיפויות ----
             weights = payload.get("weights") or {
                 "reliability": 5,
                 "resale": 3,
@@ -666,28 +691,42 @@ def create_app():
                 "performance": 2,
                 "comfort": 3,
             }
+
+            # ---- שלב 4: פרטים נוספים ----
+            insurance_history = payload.get("insurance_history", "") or ""
+            violations = payload.get("violations", "אין") or "אין"
+
+            family_size = payload.get("family_size", "1-2") or "1-2"
+            cargo_need = payload.get("cargo_need", "בינוני") or "בינוני"
+
+            safety_required = payload.get("safety_required")
+            if not safety_required:
+                safety_required = payload.get("safety_required_radio", "כן")
+            if not safety_required:
+                safety_required = "כן"
+
+            trim_level = payload.get("trim_level", "סטנדרטי") or "סטנדרטי"
+
+            consider_supply = payload.get("consider_supply", "כן") or "כן"
+            consider_market_supply = (consider_supply == "כן")
+
             fuel_price = float(payload.get("fuel_price", 7.0))
             electricity_price = float(payload.get("electricity_price", 0.65))
+
         except Exception as e:
             return jsonify({"error": f"שגיאת קלט: {e}"}), 400
 
-        # מיפוי דלק/גיר/טורבו מהעברית לערכים לוגיים
+        # --- מיפוי דלק/גיר/טורבו מהעברית לערכים לוגיים ---
         fuels = [fuel_map.get(f, "gasoline") for f in fuels_he] if fuels_he else ["gasoline"]
+
         if "חשמלי" in fuels_he:
             gears = ["automatic"]
         else:
             gears = [gear_map.get(g, "automatic") for g in gears_he] if gears_he else ["automatic"]
+
         turbo_choice = turbo_map.get(turbo_choice_he, "any")
 
-        # שדות חסרים שלא קיימים בשאלון הפשוט – נגדיר דיפולטים
-        family_size = "1-2"
-        cargo_need = "בינוני"
-        safety_required = "כן"
-        trim_level = "סטנדרטי"
-        body_style = "כללי"
-        driving_style = "רגוע ונינוח"
-        excluded_colors = []
-
+        # --- בניית user_profile כמו ב-Car Advisor (Streamlit) ---
         user_profile = make_user_profile(
             budget_min,
             budget_max,
@@ -708,15 +747,15 @@ def create_app():
             excluded_colors,
         )
 
-        # שדות נוספים כמו בגרסת Streamlit
-        user_profile["license_years"] = 2
-        user_profile["driver_gender"] = "זכר"
-        user_profile["insurance_history"] = "לא מוגדר"
-        user_profile["violations"] = "לא מוגדר"
-        user_profile["consider_market_supply"] = True
+        # שדות נוספים
+        user_profile["license_years"] = license_years
+        user_profile["driver_gender"] = driver_gender
+        user_profile["insurance_history"] = insurance_history
+        user_profile["violations"] = violations
+        user_profile["consider_market_supply"] = consider_market_supply
         user_profile["fuel_price_nis_per_liter"] = fuel_price
         user_profile["electricity_price_nis_per_kwh"] = electricity_price
-        user_profile["seats"] = "5"
+        user_profile["seats"] = seats_choice
 
         parsed = car_advisor_call_gemini_with_search(user_profile)
         if parsed.get("_error"):
@@ -796,8 +835,11 @@ def create_app():
         try:
             new_log = SearchHistory(
                 user_id=current_user.id,
-                make=final_make, model=final_model, year=final_year,
-                mileage_range=final_mileage, fuel_type=final_fuel,
+                make=final_make,
+                model=final_model,
+                year=final_year,
+                mileage_range=final_mileage,
+                fuel_type=final_fuel,
                 transmission=final_trans,
                 result_json=json.dumps(model_output, ensure_ascii=False)
             )
