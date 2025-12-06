@@ -8,6 +8,7 @@
     const queriesEl = document.getElementById('advisor-search-queries');
     const tableWrapper = document.getElementById('advisor-table-wrapper');
     const errorEl = document.getElementById('advisor-error');
+    const consentCheckbox = document.getElementById('advisor-consent');
 
     if (!form) return;
 
@@ -120,16 +121,16 @@
 
         const cars = Array.isArray(data.recommended_cars) ? data.recommended_cars : [];
         if (!cars.length) {
-            tableWrapper.innerHTML = '<p class="text-sm text-slate-400">לא התקבלו המלצות. ייתכן שהגבלות התקציב/שנים קשיחות מדי.</p>';
+            tableWrapper.innerHTML =
+                '<p class="text-sm text-slate-400">לא התקבלו המלצות. ייתכן שהגבלות התקציב/שנים קשיחות מדי.</p>';
             resultsSection.classList.remove('hidden');
-            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
             return;
         }
 
-        // למיין לפי fit_score מהגבוה לנמוך
         cars.sort((a, b) => (b.fit_score || 0) - (a.fit_score || 0));
 
-        const rows = cars.map((car, idx) => {
+        const rows = cars.map((car) => {
             const fit = car.fit_score != null ? Math.round(car.fit_score) : null;
             let fitClass = 'bg-slate-800 text-slate-100';
             if (fit !== null) {
@@ -189,21 +190,33 @@
         `;
 
         resultsSection.classList.remove('hidden');
-        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        resultsSection.scrollIntoView({behavior: 'smooth', block: 'start'});
     }
 
     async function handleSubmit(e) {
         e.preventDefault();
+
         if (errorEl) {
             errorEl.textContent = '';
             errorEl.classList.add('hidden');
+        }
+
+        // בדיקת הסכמה מעל גיל 18 + תנאים
+        if (consentCheckbox && !consentCheckbox.checked) {
+            if (errorEl) {
+                errorEl.textContent =
+                    'יש לאשר שאתה מעל גיל 18 ומסכים לתקנון ולמדיניות הפרטיות לפני הפעלת מנוע ההמלצות.';
+                errorEl.classList.remove('hidden');
+            }
+            return;
         }
 
         const payload = buildPayload();
 
         if (!payload.budget_max || payload.budget_max <= 0 || payload.budget_min > payload.budget_max) {
             if (errorEl) {
-                errorEl.textContent = 'בדוק שהתקציב המינימלי קטן מהתקציב המקסימלי ושערכי התקציב תקינים.';
+                errorEl.textContent =
+                    'בדוק שהתקציב המינימלי קטן מהתקציב המקסימלי ושערכי התקציב תקינים.';
                 errorEl.classList.remove('hidden');
             }
             return;
@@ -213,13 +226,14 @@
         try {
             const res = await fetch('/advisor_api', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify(payload)
             });
             const data = await res.json();
             if (!res.ok || data.error) {
                 if (errorEl) {
-                    errorEl.textContent = data.error || 'שגיאת שרת בעת הפעלת מנוע ההמלצות.';
+                    errorEl.textContent =
+                        data.error || 'שגיאת שרת בעת הפעלת מנוע ההמלצות.';
                     errorEl.classList.remove('hidden');
                 } else {
                     alert(data.error || 'שגיאת שרת');
@@ -230,7 +244,8 @@
         } catch (err) {
             console.error(err);
             if (errorEl) {
-                errorEl.textContent = 'שגיאה כללית בחיבור לשרת. נסה שוב מאוחר יותר.';
+                errorEl.textContent =
+                    'שגיאה כללית בחיבור לשרת. נסה שוב מאוחר יותר.';
                 errorEl.classList.remove('hidden');
             } else {
                 alert('שגיאה כללית בחיבור לשרת');
