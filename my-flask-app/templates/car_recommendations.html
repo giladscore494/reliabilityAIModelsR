@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<title>שאלון המלצות רכבים</title>
+<style>
+    body {
+        font-family: Heebo, sans-serif;
+        background:#0F172A;
+        color:#E2E8F0;
+        padding:40px;
+    }
+    label { display:block; margin-top:20px; font-weight:bold; }
+    input, textarea, select {
+        width:100%; padding:10px; border-radius:8px;
+        border:1px solid #334155; background:#1E293B; color:white;
+    }
+    button {
+        margin-top: 30px; padding:14px 24px;
+        background:#6366F1; border:none; color:white;
+        border-radius:10px; font-weight:bold; cursor:pointer;
+    }
+</style>
+</head>
+<body>
+
+<h1 style="font-size:2.2rem;font-weight:900;margin-bottom:30px;">שאלון המלצות רכבים</h1>
+
+<form action="/submit-survey" method="POST">
+
+    <label>תקציב משוער:</label>
+    <input type="text" name="budget" placeholder="לדוגמה: 30–60 אלף">
+
+    <label>אופי שימוש:</label>
+    <textarea name="usage" placeholder="עירוני/בינעירוני/משפחה/שליחויות"></textarea>
+
+    <label>מספר נוסעים קבוע:</label>
+    <select name="passengers">
+        <option>1</option>
+        <option>2</option>
+        <option>3–4</option>
+        <option>5+</option>
+    </select>
+
+    <label>מותגים מועדפים (לא חובה):</label>
+    <input type="text" name="preferred_brands" placeholder="טויוטה, יונדאי...">
+
+    <label>הערות נוספות:</label>
+    <textarea name="notes"></textarea>
+
+    <button type="submit">שלח שאלון</button>
+
+</form>
+
+</body>
+</html>
