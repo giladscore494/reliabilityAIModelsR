@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.3.4 (Dashboard Fix + Owner Flag + Car Advisor API + Params & 18+)
+# v7.4.0 (Dashboard Fix + Owner Flag + Car Advisor API + AdvisorHistory)
 # ===================================================================
 
 import os, re, json, traceback
@@ -56,6 +56,7 @@ class User(db.Model, UserMixin):
     email = db.Column(db.String(120), unique=True, nullable=False)
     name = db.Column(db.String(100))
     searches = db.relationship('SearchHistory', backref='user', lazy=True)
+    advisor_searches = db.relationship('AdvisorHistory', backref='user', lazy=True)
 
 
 class SearchHistory(db.Model):
@@ -68,6 +69,19 @@ class SearchHistory(db.Model):
     mileage_range = db.Column(db.String(100))
     fuel_type = db.Column(db.String(100))
     transmission = db.Column(db.String(100))
+    result_json = db.Column(db.Text, nullable=False)
+
+
+class AdvisorHistory(db.Model):
+    """
+    היסטוריית מנוע ההמלצות:
+    - profile_json: כל הפרופיל של המשתמש (שאלון מלא)
+    - result_json: כל ההמלצות + כל הפרמטרים וההסברים לכל רכב
+    """
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    timestamp = db.Column(db.DateTime, nullable=False, default=datetime.now)
+    profile_json = db.Column(db.Text, nullable=False)
     result_json = db.Column(db.Text, nullable=False)
 
 
@@ -234,50 +248,6 @@ turbo_map_he = {
     "any": "לא משנה",
     True: "כן",
     False: "לא",
-}
-
-# 🔹 טבלת פרמטרים (לתצוגה בעברית בכל רכב)
-column_map_he = {
-    "brand": "מותג",
-    "model": "דגם",
-    "year": "שנה",
-    "fuel": "דלק",
-    "gear": "תיבה",
-    "turbo": "טורבו",
-    "engine_cc": "נפח מנוע (סמ\"ק)",
-    "price_range_nis": "טווח מחיר (₪)",
-    "avg_fuel_consumption": "צריכת דלק ממוצעת (ק\"מ/ל')",  # במובייל נעדכן לחשמל אם צריך
-    "annual_fee": "אגרה שנתית (₪)",
-    "annual_energy_cost": "עלות דלק/חשמל שנתית (₪)",
-    "annual_fuel_cost": "עלות דלק/חשמל שנתית (₪)",
-    "total_annual_cost": "עלות כוללת שנתית (₪)",
-    "reliability_score": "אמינות",
-    "maintenance_cost": "עלות אחזקה (₪/שנה)",
-    "safety_rating": "בטיחות",
-    "insurance_cost": "עלות ביטוח (₪/שנה)",
-    "resale_value": "שמירת ערך",
-    "performance_score": "ביצועים",
-    "comfort_features": "נוחות",
-    "suitability": "התאמה ללקוח",
-    "market_supply": "היצע בשוק",
-    "fit_score": "ציון התאמה כללי (0–100)",
-    "comparison_comment": "סיכום השוואתי",
-    "not_recommended_reason": "סיבת אי-המלצה (אם קיימת)",
-}
-
-# 🔹 מיפוי שיטות חישוב (הסברים לכל פרמטר עם *_method)
-method_map_he = {
-    "fuel_method": "שיטת חישוב צריכת דלק/חשמל",
-    "fee_method": "שיטת חישוב אגרה",
-    "reliability_method": "שיטת חישוב אמינות",
-    "maintenance_method": "שיטת חישוב עלות אחזקה",
-    "safety_method": "שיטת חישוב בטיחות",
-    "insurance_method": "שיטת חישוב ביטוח",
-    "resale_method": "שיטת חישוב שמירת ערך",
-    "performance_method": "שיטת חישוב ביצועים",
-    "comfort_method": "שיטת חישוב נוחות",
-    "suitability_method": "שיטת חישוב התאמה",
-    "supply_method": "שיטת קביעת היצע",
 }
 
 
@@ -560,6 +530,14 @@ def create_app():
 
     login_manager.login_view = 'login'
 
+    # יצירת טבלאות (כולל AdvisorHistory) אם חסרות
+    with app.app_context():
+        try:
+            db.create_all()
+            print("[DB] ✅ create_all executed")
+        except Exception as e:
+            print(f"[DB] ⚠️ create_all failed: {e}")
+
     # Gemini key
     GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
     if not GEMINI_API_KEY:
@@ -662,6 +640,7 @@ def create_app():
             user_searches = SearchHistory.query.filter_by(
                 user_id=current_user.id
             ).order_by(SearchHistory.timestamp.desc()).all()
+
             searches_data = []
             for s in user_searches:
                 searches_data.append({
@@ -675,9 +654,16 @@ def create_app():
                     "transmission": s.transmission or '',
                     "data": json.loads(s.result_json)
                 })
+
+            advisor_entries = AdvisorHistory.query.filter_by(
+                user_id=current_user.id
+            ).order_by(AdvisorHistory.timestamp.desc()).all()
+            advisor_count = len(advisor_entries)
+
             return render_template(
                 'dashboard.html',
                 searches=searches_data,
+                advisor_count=advisor_count,
                 user=current_user,
                 is_owner=is_owner_user(),
             )
@@ -697,8 +683,8 @@ def create_app():
             meta = {
                 "id": s.id,
                 "timestamp": s.timestamp.strftime("%d/%m/%Y %H:%M"),
-                "make": s.make.title(),
-                "model": s.model.title(),
+                "make": s.make.title() if s.make else "",
+                "model": s.model.title() if s.model else "",
                 "year": s.year,
                 "mileage_range": s.mileage_range,
                 "fuel_type": s.fuel_type,
@@ -732,24 +718,12 @@ def create_app():
         """
         מקבל profile מה-JS (recommendations.js),
         בונה user_profile מלא כמו ב-Car Advisor (Streamlit),
-        קורא ל-Gemini 3 Pro ומחזיר JSON מוכן להצגה.
-        כולל:
-        - בדיקת הסכמה מעל גיל 18 + תנאי שימוש.
-        - החזרת מיפוי פרמטרים ושיטות חישוב ל-frontend.
+        קורא ל-Gemini 3 Pro, שומר היסטוריה ומחזיר JSON מוכן להצגה.
         """
         try:
             payload = request.get_json(force=True) or {}
         except Exception:
             return jsonify({"error": "קלט JSON לא תקין"}), 400
-
-        # --- חובה: משתמש מאשר שהוא מעל 18 ומקבל את התנאים ---
-        is_over_18 = payload.get("is_over_18")
-        if isinstance(is_over_18, str):
-            is_over_18 = is_over_18.strip().lower() in ("1", "true", "yes", "on", "y", "כן")
-        if not is_over_18:
-            return jsonify({
-                "error": "חובה לאשר שאתה מעל גיל 18 ומקבל את תנאי השימוש לפני קבלת המלצות."
-            }), 400
 
         try:
             # ---- שלב 1: בסיסי ----
@@ -860,9 +834,18 @@ def create_app():
 
         result = car_advisor_postprocess(user_profile, parsed)
 
-        # החזרת מיפוי כל הפרמטרים + שיטות ההסבר ל-frontend
-        result["column_map_he"] = column_map_he
-        result["method_map_he"] = method_map_he
+        # 🔴 שמירת היסטוריית המלצות למאגר
+        try:
+            rec_log = AdvisorHistory(
+                user_id=current_user.id,
+                profile_json=json.dumps(user_profile, ensure_ascii=False),
+                result_json=json.dumps(result, ensure_ascii=False),
+            )
+            db.session.add(rec_log)
+            db.session.commit()
+        except Exception as e:
+            print(f"[DB] ⚠️ failed to save advisor history: {e}")
+            db.session.rollback()
 
         return jsonify(result)
 
