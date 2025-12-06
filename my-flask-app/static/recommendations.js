@@ -1,251 +1,244 @@
-// =============================
-//  Car Advisor – Frontend Logic
-//  עובד עם recommendations.html
-// =============================
+// /static/recommendations.js
+// לוגיקת צד לקוח למנוע ההמלצות (Car Advisor / Gemini 3)
 
-// ---- שליטה על השלבים ----
-let currentStep = 0;
+(function () {
+    const form = document.getElementById('advisor-form');
+    const submitBtn = document.getElementById('advisor-submit');
+    const resultsSection = document.getElementById('advisor-results');
+    const queriesEl = document.getElementById('advisor-search-queries');
+    const tableWrapper = document.getElementById('advisor-table-wrapper');
+    const errorEl = document.getElementById('advisor-error');
 
-function showStep(n) {
-    document.querySelectorAll(".step").forEach((s) => s.classList.remove("active"));
-    const target = document.getElementById(`step${n}`);
-    if (target) {
-        target.classList.add("active");
-        currentStep = n;
+    if (!form) return;
+
+    function setSubmitting(isSubmitting) {
+        if (!submitBtn) return;
+        const spinner = submitBtn.querySelector('.spinner');
+        const textSpan = submitBtn.querySelector('.button-text');
+        submitBtn.disabled = isSubmitting;
+        if (spinner) spinner.classList.toggle('hidden', !isSubmitting);
+        if (textSpan) textSpan.classList.toggle('opacity-60', isSubmitting);
     }
-}
 
-function nextStep() {
-    showStep(currentStep + 1);
-}
-
-function prevStep() {
-    showStep(currentStep - 1);
-}
-
-// =============================
-// עזר קטן לשליפת ערכים
-// =============================
-function getValue(id, fallback = "") {
-    const el = document.getElementById(id);
-    if (!el) return fallback;
-    if (el.type === "number") {
-        const v = parseFloat(el.value);
-        return isNaN(v) ? fallback : v;
+    function getCheckedValues(name) {
+        return Array.from(form.querySelectorAll(`input[name="${name}"]:checked`)).map(el => el.value);
     }
-    return el.value !== undefined && el.value !== null && el.value !== "" ? el.value : fallback;
-}
 
-function getMultiSelect(id) {
-    const el = document.getElementById(id);
-    if (!el) return [];
-    return Array.from(el.selectedOptions).map(o => o.value);
-}
+    function getRadioValue(name, fallback) {
+        const el = form.querySelector(`input[name="${name}"]:checked`);
+        return el ? el.value : fallback;
+    }
 
-function getRadioValue(name, fallback = "") {
-    const el = document.querySelector(`input[name="${name}"]:checked`);
-    return el ? el.value : fallback;
-}
+    function buildPayload() {
+        const fuels_he = getCheckedValues('fuels_he');
+        const gears_he = getCheckedValues('gears_he');
+        const turbo_choice_he = getRadioValue('turbo_choice_he', 'לא משנה');
+        const safety_required_radio = getRadioValue('safety_required_radio', 'כן');
+        const consider_supply = getRadioValue('consider_supply', 'כן');
 
-// =============================
-// איסוף כל הנתונים מהטופס – לפי ה־Streamlit המקורי
-// =============================
-function collectProfile() {
-    const profile = {};
+        const payload = {
+            budget_min: parseFloat(form.budget_min.value || '0'),
+            budget_max: parseFloat(form.budget_max.value || '0'),
+            year_min: parseInt(form.year_min.value || '2000', 10),
+            year_max: parseInt(form.year_max.value || '2025', 10),
 
-    // ---- שלב 1: פרטים בסיסיים ----
-    profile.budget_min = parseFloat(getValue("budget_min", 0));
-    profile.budget_max = parseFloat(getValue("budget_max", 0));
+            fuels_he,
+            gears_he,
+            turbo_choice_he,
 
-    profile.year_min = parseInt(getValue("year_min", 2000));
-    profile.year_max = parseInt(getValue("year_max", 2025));
+            main_use: form.main_use.value || '',
+            annual_km: parseInt(form.annual_km.value || '15000', 10),
+            driver_age: parseInt(form.driver_age.value || '21', 10),
+            license_years: parseInt(form.license_years.value || '0', 10),
 
-    profile.fuels_he = getMultiSelect("fuels");      // ערכים בעברית, כמו Streamlit
-    profile.gears_he = getMultiSelect("gears");      // ערכים בעברית
-    profile.turbo_choice_he = getValue("turbo", "לא משנה");
+            driver_gender: form.driver_gender.value || 'זכר',
+            body_style: form.body_style.value || 'כללי',
+            driving_style: form.driving_style.value || 'רגוע ונינוח',
+            seats_choice: form.seats_choice.value || '5',
 
-    // ---- שלב 2: שימוש וסגנון ----
-    profile.main_use = getValue("main_use", "");
-    profile.annual_km = parseInt(getValue("annual_km", 0));
-    profile.driver_age = parseInt(getValue("driver_age", 18));
+            family_size: form.family_size.value || '1-2',
+            cargo_need: form.cargo_need.value || 'בינוני',
 
-    profile.license_years = parseInt(getValue("license_years", 0));
-    profile.driver_gender = getValue("driver_gender", "זכר");
+            insurance_history: form.insurance_history.value || '',
+            violations: form.violations.value || 'אין',
 
-    profile.body_style = getValue("body_style", "כללי");
-    profile.driving_style = getValue("driving_style", "רגוע ונינוח");
-    profile.seats_choice = getValue("seats_choice", "5");
+            safety_required_radio,
+            trim_level: form.trim_level.value || 'סטנדרטי',
 
-    const excludedColorsRaw = getValue("excluded_colors", "");
-    profile.excluded_colors = excludedColorsRaw
-        .split(",")
-        .map(s => s.trim())
-        .filter(Boolean);
+            consider_supply,
+            fuel_price: parseFloat(form.fuel_price.value || '7.0'),
+            electricity_price: parseFloat(form.electricity_price.value || '0.65'),
 
-    // ---- שלב 3: סדר עדיפויות ----
-    profile.weights = {
-        reliability: parseInt(getValue("weight_reliability", 5)),
-        resale: parseInt(getValue("weight_resale", 3)),
-        fuel: parseInt(getValue("weight_fuel", 4)),
-        performance: parseInt(getValue("weight_perf", 2)),
-        comfort: parseInt(getValue("weight_comfort", 3)),
-    };
+            excluded_colors: form.excluded_colors.value || '',
 
-    // ---- שלב 4: פרטים נוספים ----
-    profile.insurance_history = getValue("insurance_history", "");
-    profile.violations = getValue("violations", "אין");
+            // משקלים
+            weights: {
+                reliability: parseInt(document.getElementById('w_reliability').value || '5', 10),
+                resale: parseInt(document.getElementById('w_resale').value || '3', 10),
+                fuel: parseInt(document.getElementById('w_fuel').value || '4', 10),
+                performance: parseInt(document.getElementById('w_performance').value || '2', 10),
+                comfort: parseInt(document.getElementById('w_comfort').value || '3', 10)
+            }
+        };
 
-    profile.family_size = getValue("family_size", "1-2");
-    profile.cargo_need = getValue("cargo_need", "בינוני");
+        return payload;
+    }
 
-    // תלוי אם בנוי כ-radio או select – תומך בשניהם
-    const safetyFromRadio = getRadioValue("safety_required", "");
-    profile.safety_required = safetyFromRadio || getValue("safety_required", "כן");
+    function formatPriceRange(range) {
+        if (!range) return '';
+        if (Array.isArray(range)) {
+            if (range.length === 2) return `${range[0]}–${range[1]} ₪`;
+            return range.join(' / ');
+        }
+        return String(range);
+    }
 
-    profile.trim_level = getValue("trim_level", "סטנדרטי");
+    function safeNum(val, decimals = 0) {
+        const n = Number(val);
+        if (Number.isNaN(n)) return '';
+        return n.toFixed(decimals);
+    }
 
-    const supplyFromRadio = getRadioValue("consider_supply", "");
-    profile.consider_supply = supplyFromRadio || getValue("consider_supply", "כן");
+    function renderResults(data) {
+        if (!resultsSection || !tableWrapper) return;
 
-    profile.fuel_price = parseFloat(getValue("fuel_price", 7));
-    profile.electricity_price = parseFloat(getValue("electricity_price", 0.65));
-
-    return profile;
-}
-
-// =============================
-// שליחת הפרופיל לשרת (Flask)
-// =============================
-async function sendProfile() {
-    const profile = collectProfile();
-
-    const loadingEl = document.getElementById("loading");
-    const resultsEl = document.getElementById("results");
-
-    if (loadingEl) loadingEl.classList.remove("hidden");
-    if (resultsEl) resultsEl.innerHTML = "";
-
-    try {
-        const resp = await fetch("/advisor_api", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(profile),
-        });
-
-        const json = await resp.json();
-        if (loadingEl) loadingEl.classList.add("hidden");
-
-        if (!resp.ok) {
-            if (resultsEl) {
-                resultsEl.innerHTML = `
-                    <div class="text-red-400 text-xl mt-4">
-                        שגיאה: ${json.error || "תקלה לא ידועה"}
+        const queries = Array.isArray(data.search_queries) ? data.search_queries : [];
+        if (queriesEl) {
+            if (queries.length) {
+                queriesEl.innerHTML = `
+                    <div class="text-[11px] text-slate-400">
+                        <span class="font-semibold text-slate-300">שאילתות חיפוש שבוצעו:</span>
+                        <ul class="mt-1 space-y-0.5">
+                            ${queries.map(q => `<li>• ${q}</li>`).join('')}
+                        </ul>
                     </div>
                 `;
+            } else {
+                queriesEl.textContent = '';
+            }
+        }
+
+        const cars = Array.isArray(data.recommended_cars) ? data.recommended_cars : [];
+        if (!cars.length) {
+            tableWrapper.innerHTML = '<p class="text-sm text-slate-400">לא התקבלו המלצות. ייתכן שהגבלות התקציב/שנים קשיחות מדי.</p>';
+            resultsSection.classList.remove('hidden');
+            resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            return;
+        }
+
+        // למיין לפי fit_score מהגבוה לנמוך
+        cars.sort((a, b) => (b.fit_score || 0) - (a.fit_score || 0));
+
+        const rows = cars.map((car, idx) => {
+            const fit = car.fit_score != null ? Math.round(car.fit_score) : null;
+            let fitClass = 'bg-slate-800 text-slate-100';
+            if (fit !== null) {
+                if (fit >= 85) fitClass = 'bg-emerald-500/90 text-white';
+                else if (fit >= 70) fitClass = 'bg-amber-500/90 text-slate-900';
+                else fitClass = 'bg-slate-700 text-slate-100';
+            }
+
+            return `
+                <tr class="border-b border-slate-800/80 hover:bg-slate-900/60 text-xs md:text-sm">
+                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap">
+                        <div class="flex flex-col">
+                            <span class="font-semibold text-slate-100">${car.brand || ''} ${car.model || ''}</span>
+                            <span class="text-[11px] text-slate-400">שנה: ${car.year || ''}</span>
+                        </div>
+                    </td>
+                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap text-[11px] md:text-xs text-slate-200">
+                        <div>${car.fuel || ''}</div>
+                        <div>${car.gear || ''}${car.turbo ? ` • טורבו: ${car.turbo}` : ''}</div>
+                    </td>
+                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap text-[11px] md:text-xs text-slate-200">
+                        ${formatPriceRange(car.price_range_nis)}
+                    </td>
+                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap text-[11px] md:text-xs text-slate-200">
+                        ${car.total_annual_cost != null ? `${safeNum(car.total_annual_cost)} ₪` : ''}
+                    </td>
+                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap">
+                        <span class="inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded-full text-[11px] font-bold ${fitClass}">
+                            ${fit !== null ? fit + '%' : '?'}
+                        </span>
+                    </td>
+                    <td class="hidden md:table-cell px-2 py-2 md:px-3 md:py-2.5 text-[11px] text-slate-300 max-w-xs">
+                        ${car.comparison_comment || ''}
+                    </td>
+                </tr>
+            `;
+        }).join('');
+
+        tableWrapper.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="min-w-full text-right border-separate border-spacing-y-1">
+                    <thead class="text-[11px] md:text-xs text-slate-400">
+                        <tr>
+                            <th class="px-2 md:px-3 py-1 font-semibold">דגם</th>
+                            <th class="px-2 md:px-3 py-1 font-semibold">דלק / גיר</th>
+                            <th class="px-2 md:px-3 py-1 font-semibold">טווח מחיר (₪)</th>
+                            <th class="px-2 md:px-3 py-1 font-semibold">עלות שנתית משוערת</th>
+                            <th class="px-2 md:px-3 py-1 font-semibold">Fit Score</th>
+                            <th class="hidden md:table-cell px-2 md:px-3 py-1 font-semibold">הערת השוואה</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        resultsSection.classList.remove('hidden');
+        resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    async function handleSubmit(e) {
+        e.preventDefault();
+        if (errorEl) {
+            errorEl.textContent = '';
+            errorEl.classList.add('hidden');
+        }
+
+        const payload = buildPayload();
+
+        if (!payload.budget_max || payload.budget_max <= 0 || payload.budget_min > payload.budget_max) {
+            if (errorEl) {
+                errorEl.textContent = 'בדוק שהתקציב המינימלי קטן מהתקציב המקסימלי ושערכי התקציב תקינים.';
+                errorEl.classList.remove('hidden');
             }
             return;
         }
 
-        renderResults(json);
-
-    } catch (err) {
-        if (loadingEl) loadingEl.classList.add("hidden");
-        if (resultsEl) {
-            resultsEl.innerHTML = `
-                <div class="text-red-400 text-xl mt-4">
-                    שגיאת רשת: ${err}
-                </div>
-            `;
+        setSubmitting(true);
+        try {
+            const res = await fetch('/advisor_api', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const data = await res.json();
+            if (!res.ok || data.error) {
+                if (errorEl) {
+                    errorEl.textContent = data.error || 'שגיאת שרת בעת הפעלת מנוע ההמלצות.';
+                    errorEl.classList.remove('hidden');
+                } else {
+                    alert(data.error || 'שגיאת שרת');
+                }
+                return;
+            }
+            renderResults(data);
+        } catch (err) {
+            console.error(err);
+            if (errorEl) {
+                errorEl.textContent = 'שגיאה כללית בחיבור לשרת. נסה שוב מאוחר יותר.';
+                errorEl.classList.remove('hidden');
+            } else {
+                alert('שגיאה כללית בחיבור לשרת');
+            }
+        } finally {
+            setSubmitting(false);
         }
     }
-}
 
-// =============================
-// הצגת התוצאות
-// =============================
-function renderResults(data) {
-    const el = document.getElementById("results");
-    if (!el) return;
-
-    if (!data || !Array.isArray(data.recommended_cars)) {
-        el.innerHTML = `<div class="text-red-400 text-xl">לא התקבלו תוצאות.</div>`;
-        return;
-    }
-
-    const cars = data.recommended_cars;
-    let html = `
-        <h3 class="text-2xl font-bold mb-4 text-indigo-300">תוצאות ההמלצות</h3>
-        <p class="text-sm opacity-70 mb-4">סה״כ ${cars.length} רכבים מתאימים</p>
-    `;
-
-    cars.forEach((car, idx) => {
-        const fitScore = car.fit_score !== undefined && car.fit_score !== null
-            ? `${car.fit_score}/100`
-            : "לא זמין";
-
-        const totalAnnual = car.total_annual_cost !== undefined && car.total_annual_cost !== null
-            ? `${car.total_annual_cost} ₪`
-            : "לא זמין";
-
-        const priceRange = car.price_range_nis || "";
-        const marketSupply = car.market_supply || "";
-
-        html += `
-        <div class="card p-4 rounded-xl mb-4">
-            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-2">
-                <h4 class="text-xl font-bold text-indigo-400">
-                    ${idx + 1}. ${car.brand || ""} ${car.model || ""} ${car.year || ""}
-                </h4>
-                <div class="flex flex-wrap gap-2 text-xs">
-                    <span class="px-3 py-1 rounded-full bg-slate-800/70 border border-slate-600">
-                        ציון התאמה: <strong>${fitScore}</strong>
-                    </span>
-                    ${marketSupply
-                        ? `<span class="px-3 py-1 rounded-full bg-slate-800/70 border border-slate-600">
-                               היצע בשוק: ${marketSupply}
-                           </span>`
-                        : ""
-                    }
-                </div>
-            </div>
-
-            ${priceRange
-                ? `<p class="text-sm opacity-80 mb-2">טווח מחיר משוער: ${priceRange}</p>`
-                : ""
-            }
-
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm opacity-80">
-                <div>דלק: ${car.fuel || "-"}</div>
-                <div>תיבה: ${car.gear || "-"}</div>
-                <div>טורבו: ${car.turbo !== undefined ? car.turbo : "-"}</div>
-                <div>אמינות: ${car.reliability_score !== undefined ? car.reliability_score + "/10" : "-"}</div>
-                <div>אחזקה: ${car.maintenance_cost !== undefined ? car.maintenance_cost + " ₪/שנה" : "-"}</div>
-                <div>ביטוח: ${car.insurance_cost !== undefined ? car.insurance_cost + " ₪/שנה" : "-"}</div>
-                <div>עלות שנתית כוללת: ${totalAnnual}</div>
-                <div>נוחות: ${car.comfort_features !== undefined ? car.comfort_features + "/10" : "-"}</div>
-                <div>בטיחות: ${car.safety_rating !== undefined ? car.safety_rating + "/10" : "-"}</div>
-                <div>שמירת ערך: ${car.resale_value !== undefined ? car.resale_value + "/10" : "-"}</div>
-                <div>ביצועים: ${car.performance_score !== undefined ? car.performance_score + "/10" : "-"}</div>
-                <div>התאמה כללית: ${car.suitability !== undefined ? car.suitability + "/10" : "-"}</div>
-            </div>
-
-            ${car.comparison_comment
-                ? `<p class="mt-3 text-sm">${car.comparison_comment}</p>`
-                : ""
-            }
-
-            ${car.not_recommended_reason
-                ? `<p class="mt-2 text-xs text-amber-300">⚠️ הערת זהירות: ${car.not_recommended_reason}</p>`
-                : ""
-            }
-        </div>
-        `;
-    });
-
-    el.innerHTML = html;
-}
-
-// =============================
-// הפעלה ראשונית
-// =============================
-showStep(0);
+    form.addEventListener('submit', handleSubmit);
+})();
