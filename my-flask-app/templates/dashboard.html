@@ -6,7 +6,6 @@
     <meta name="viewport"
           content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap"
           rel="stylesheet">
@@ -76,7 +75,6 @@
 </head>
 <body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased">
 
-<!-- HEADER -->
 <header class="sticky top-0 z-40 bg-dark/90 backdrop-blur-lg border-b border-slate-800/80">
     <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
         <a href="{{ url_for('index') }}" class="flex items-center">
@@ -115,10 +113,8 @@
     </div>
 </header>
 
-<!-- MAIN -->
 <main class="flex-grow relative container mx-auto px-4 py-8 pb-24">
 
-    <!-- כותרת + תגים -->
     <div class="mb-8">
         <h2 class="text-2xl md:text-3xl font-extrabold text-white mb-2">
             החיפושים שלי
@@ -134,7 +130,6 @@
         </div>
     </div>
 
-    <!-- רשימת חיפושים -->
     <div class="relative z-10">
         {% if searches and searches|length > 0 %}
             <div class="grid gap-4">
@@ -211,20 +206,16 @@
     </div>
 </main>
 
-<!-- OVERLAY: פרטי חיפוש -->
 <div id="details-overlay"
      class="fixed inset-0 bg-dark/95 z-50 hidden flex flex-col overlay-open">
-    <!-- Top bar -->
     <div class="flex items-center justify-between px-4 py-3 bg-dark-lighter border-b border-slate-700 shrink-0 shadow-md">
         <div>
             <h3 id="details-title"
                 class="text-lg md:text-xl font-bold text-white leading-tight">
-                <!-- ימולא דינמית -->
-            </h3>
+                </h3>
             <p id="details-meta"
                class="text-xs text-slate-400 mt-0.5">
-                <!-- ימולא דינמית -->
-            </p>
+                </p>
         </div>
         <button id="details-close-btn"
                 class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 text-white border border-slate-600 active:bg-slate-700"
@@ -234,14 +225,11 @@
         </button>
     </div>
 
-    <!-- Content -->
     <div id="details-content"
-         class="flex-1 overflow-y-auto overflow-x-hidden bg-dark px-4 py-4 md:px-6 md:py-6 space-y-4">
-        <!-- ימולא דינמית -->
-    </div>
+         class="flex-1 overflow-y-auto overflow-x-hidden bg-dark px-4 py-4 md:px-6 md:py-6 relative">
+        </div>
 </div>
 
-<!-- SCRIPTS -->
 <script>
     const overlayEl = document.getElementById('details-overlay');
     const detailsTitleEl = document.getElementById('details-title');
@@ -433,19 +421,19 @@
 
         const avgRepairHtml = avgRepair !== undefined && avgRepair !== null
             ? `<div class="text-xs text-slate-300 mt-2">
-                    עלות תיקון ממוצעת: <span class="font-semibold text-slate-100">${safeNumber(avgRepair, 0)} ₪</span>
+                   עלות תיקון ממוצעת: <span class="font-semibold text-slate-100">${safeNumber(avgRepair, 0)} ₪</span>
                </div>`
             : '';
 
         const mileageNoteHtml = mileageNote
             ? `<div class="mt-2 text-[11px] text-amber-300">
-                    ⚠ ${mileageNote}
+                   ⚠ ${mileageNote}
                </div>`
             : '';
 
         const sourceTagHtml = sourceTag
             ? `<div class="mt-4 text-[11px] text-slate-500 border-t border-slate-800 pt-2">
-                    ${sourceTag}
+                   ${sourceTag}
                </div>`
             : '';
 
@@ -457,8 +445,30 @@
             ? `<p class="text-sm text-slate-200 leading-relaxed whitespace-pre-line">${fullSummary}</p>`
             : '<p class="text-sm text-slate-400">אין סיכום מקצועי זמין.</p>';
 
+        // --- NEW BUTTONS NAVIGATION (MODIFIED SECTION) ---
+        const navButtons = `
+          <div class="sticky top-0 z-30 bg-dark/95 backdrop-blur py-3 border-b border-slate-700/50 mb-6 flex gap-2 overflow-x-auto no-scrollbar -mx-4 px-4">
+              <button onclick="document.getElementById('sec-competitors').scrollIntoView({behavior: 'smooth'})" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded flex items-center gap-2 text-xs text-slate-200 transition-colors shrink-0">
+                  <span>מתחרים</span> <span class="bg-orange-500 text-white rounded px-1 text-[10px] font-bold">VS</span>
+              </button>
+              <button onclick="document.getElementById('sec-costs').scrollIntoView({behavior: 'smooth'})" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded flex items-center gap-2 text-xs text-slate-200 transition-colors shrink-0">
+                  <span>עלויות</span> <span>💰</span>
+              </button>
+              <button onclick="document.getElementById('sec-issues').scrollIntoView({behavior: 'smooth'})" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded flex items-center gap-2 text-xs text-slate-200 transition-colors shrink-0">
+                  <span>תקלות</span> <span>🔧</span>
+              </button>
+              <button onclick="document.getElementById('sec-summary').scrollIntoView({behavior: 'smooth'})" class="px-3 py-1.5 bg-slate-600/80 border-b-2 border-primary text-white rounded-t flex items-center gap-2 text-xs transition-colors shrink-0">
+                 <span>סיכום</span> <span>📄</span>
+              </button>
+               <button onclick="document.getElementById('sec-sources').scrollIntoView({behavior: 'smooth'})" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 rounded flex items-center gap-2 text-xs text-slate-200 transition-colors shrink-0">
+                  <span>מקורות</span> <span>🔗</span>
+              </button>
+          </div>
+        `;
+
         detailsContentEl.innerHTML = `
-            <!-- בלוק ציון עליון -->
+            ${navButtons}
+
             <section class="bg-dark-lighter/80 border border-slate-700 rounded-2xl p-4 mb-4">
                 <div class="flex items-center justify-between gap-4">
                     <div>
@@ -478,18 +488,16 @@
                 </div>
             </section>
 
-            <!-- סיכום פשוט -->
-            <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <section id="sec-summary" class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2 scroll-mt-32">
                 <h4 class="text-sm font-bold text-slate-100">
                     סיכום פשוט לנהג שלא מבין ברכבים
                 </h4>
                 ${simpleSummaryHtml}
             </section>
 
-            <!-- פירוט ציונים -->
-            <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <section id="sec-costs" class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-3 scroll-mt-32">
                 <h4 class="text-sm font-bold text-slate-100">
-                    פירוט ציונים לפי מערכות
+                    פירוט ציונים ועלויות
                 </h4>
                 ${breakdownRows
                     ? `<div class="overflow-x-auto">
@@ -502,8 +510,7 @@
                 ${avgRepairHtml}
             </section>
 
-            <!-- תקלות ועלויות -->
-            <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-3">
+            <section id="sec-issues" class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-3 scroll-mt-32">
                 <h4 class="text-sm font-bold text-slate-100">
                     תקלות נפוצות ועלויות משוערות
                 </h4>
@@ -511,7 +518,6 @@
                 ${issuesCostsHtml}
             </section>
 
-            <!-- סיכום מקצועי -->
             <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2">
                 <h4 class="text-sm font-bold text-slate-100">
                     סיכום מקצועי מפורט
@@ -519,7 +525,6 @@
                 ${fullSummaryHtml}
             </section>
 
-            <!-- מה לבדוק לפני קנייה -->
             <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2">
                 <h4 class="text-sm font-bold text-slate-100">
                     מה חשוב לבדוק לפני סגירת עסקה
@@ -527,16 +532,14 @@
                 ${checksHtml || '<p class="text-xs text-slate-400">אין רשימת בדיקות ייעודית.</p>'}
             </section>
 
-            <!-- מתחרים נפוצים -->
-            <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2">
+            <section id="sec-competitors" class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2 scroll-mt-32">
                 <h4 class="text-sm font-bold text-slate-100">
                     מתחרים באותה קטגוריה
                 </h4>
                 ${competitorsHtml || '<p class="text-xs text-slate-400">אין רשימת מתחרים.</p>'}
             </section>
 
-            <!-- מקורות -->
-            <section class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2 mb-4">
+            <section id="sec-sources" class="bg-dark-lighter/70 border border-slate-800 rounded-2xl p-4 space-y-2 mb-4 scroll-mt-32">
                 <h4 class="text-sm font-bold text-slate-100">
                     מקורות מידע
                 </h4>
