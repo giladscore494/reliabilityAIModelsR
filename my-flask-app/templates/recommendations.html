@@ -70,7 +70,7 @@
                     <div>
                         <h2 class="text-lg font-semibold text-slate-900">טופס הגדרת פרופיל נהג</h2>
                         <p class="text-xs text-slate-500">
-                            הנתונים נשלחים ל־<span class="font-semibold">/recommendations/submit</span> ומנותחים ע״י Gemini 3 + Google Search.
+                            הנתונים נשלחים ל־<span class="font-semibold">/advisor_api</span> ומנותחים ע״י Gemini 3 + Google Search.
                         </p>
                     </div>
                     <button
@@ -242,7 +242,7 @@
                         </div>
                     </div>
 
-                    <!-- שורה 6: משפחה / מטען / בטיחות / ביטוח -->
+                    <!-- שורה 6: משפחה / מטען / בטיחות / אבזור -->
                     <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
                         <div>
                             <label class="block text-xs mb-1 text-slate-600">גודל משפחה</label>
@@ -364,7 +364,7 @@
         const searchInfoBox = document.getElementById('advisor-search-info');
         const searchQueriesPre = document.getElementById('advisor-search-queries');
 
-        if (!submitBtn) return; // לא בעל האתר
+        if (!submitBtn) return; // לא בעל האתר / אין כפתור
 
         function showStatus(text, type) {
             if (!statusBox) return;
@@ -383,15 +383,18 @@
             if (resultsContainer) {
                 resultsContainer.innerHTML = '';
             }
-            if (searchInfoBox) {
+            if (searchInfoBox && searchQueriesPre) {
                 searchInfoBox.classList.add('hidden');
                 searchQueriesPre.textContent = '';
             }
         }
 
-        function collectValues() {
-            const val = id => document.getElementById(id) ? document.getElementById(id).value : '';
+        function val(id) {
+            const el = document.getElementById(id);
+            return el ? el.value : '';
+        }
 
+        function collectValues() {
             const budget_min = parseFloat(val('budget_min') || '0');
             const budget_max = parseFloat(val('budget_max') || '0');
             const year_min = parseInt(val('year_min') || '2015', 10);
@@ -400,6 +403,20 @@
             const fuels_he = Array.from(document.querySelectorAll('.fuel-input:checked')).map(x => x.value);
             const gears_he = Array.from(document.querySelectorAll('.gear-input:checked')).map(x => x.value);
             const turbo_choice_he = val('turbo_choice_he') || 'לא משנה';
+
+            const weights = {
+                reliability: parseInt(val('weight_reliability') || '5', 10),
+                resale: parseInt(val('weight_resale') || '3', 10),
+                fuel: parseInt(val('weight_fuel') || '4', 10),
+                performance: parseInt(val('weight_performance') || '2', 10),
+                comfort: parseInt(val('weight_comfort') || '3', 10),
+            };
+
+            const excluded_colors_raw = val('excluded_colors') || '';
+            const excluded_colors = excluded_colors_raw
+                .split(',')
+                .map(s => s.trim())
+                .filter(Boolean);
 
             const payload = {
                 budget_min,
@@ -415,11 +432,7 @@
                 body_style: val('body_style'),
                 driving_style: val('driving_style'),
                 seats_choice: val('seats_choice'),
-                weight_reliability: parseInt(val('weight_reliability') || '5', 10),
-                weight_resale: parseInt(val('weight_resale') || '3', 10),
-                weight_fuel: parseInt(val('weight_fuel') || '4', 10),
-                weight_performance: parseInt(val('weight_performance') || '2', 10),
-                weight_comfort: parseInt(val('weight_comfort') || '3', 10),
+                weights: weights,
                 family_size: val('family_size'),
                 cargo_need: val('cargo_need'),
                 safety_required: val('safety_required'),
@@ -429,7 +442,7 @@
                 insurance_history: val('insurance_history'),
                 violations: val('violations'),
                 consider_supply: val('consider_supply'),
-                excluded_colors: val('excluded_colors'),
+                excluded_colors: excluded_colors,
                 fuel_price: parseFloat(val('fuel_price') || '7'),
                 electricity_price: parseFloat(val('electricity_price') || '0.65'),
             };
@@ -437,46 +450,81 @@
             return payload;
         }
 
+        function formatNIS(num) {
+            if (num === null || num === undefined || num === '') return '';
+            const n = Number(num);
+            if (isNaN(n)) return String(num);
+            return n.toLocaleString('he-IL', { maximumFractionDigits: 0 });
+        }
+
         function renderResults(data) {
             clearResults();
-            if (!data || !Array.isArray(data.cars) || data.cars.length === 0) {
-                showStatus('לא התקבלו רכבים.', 'error');
+
+            if (data.error) {
+                showStatus(data.error, 'error');
                 return;
             }
 
-            if (data.search_info && Array.isArray(data.search_info.search_queries) && data.search_info.search_queries.length > 0) {
-                searchInfoBox.classList.remove('hidden');
-                searchQueriesPre.textContent = data.search_info.search_queries.join('\n');
+            const cars = Array.isArray(data.recommended_cars) ? data.recommended_cars : [];
+
+            if (!cars.length) {
+                showStatus('לא התקבלו רכבים מתאימים מהמודל.', 'error');
+                return;
             }
 
-            data.cars.forEach((car, idx) => {
-                const methods = (data.methods && data.methods[idx]) || {};
+            // חיפוש רשת – הצגת השאילתות
+            if (Array.isArray(data.search_queries) && data.search_queries.length > 0 && searchInfoBox && searchQueriesPre) {
+                searchInfoBox.classList.remove('hidden');
+                searchQueriesPre.textContent = data.search_queries.join('\n');
+            }
+
+            cars.forEach((car, idx) => {
                 const card = document.createElement('div');
                 card.className =
                     'bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2 text-xs sm:text-sm';
 
+                const brand = car.brand || '';
+                const model = car.model || '';
+                const year = car.year || '';
+
+                const fuel = car.fuel || '';
+                const gear = car.gear || '';
+                const turbo = (car.turbo !== undefined && car.turbo !== null) ? car.turbo : '';
+
+                const priceRange = car.price_range_nis || '';
+                const reliability = car.reliability_score !== undefined && car.reliability_score !== null
+                    ? car.reliability_score
+                    : '';
+                const resale = car.resale_value !== undefined && car.resale_value !== null
+                    ? car.resale_value
+                    : '';
+                const totalAnnual = car.total_annual_cost !== undefined && car.total_annual_cost !== null
+                    ? formatNIS(car.total_annual_cost) + ' ₪'
+                    : '';
+
+                const fitScore = car.fit_score !== undefined && car.fit_score !== null
+                    ? car.fit_score
+                    : '';
+
+                // Header
                 const title = document.createElement('div');
                 title.className = 'flex items-center justify-between gap-2';
+
                 const name = document.createElement('div');
                 name.className = 'font-semibold text-slate-900';
-                const brand = car['מותג'] || '';
-                const model = car['דגם'] || '';
-                const year = car['שנה'] || '';
                 name.textContent = `${brand} ${model} ${year}`.trim();
+
                 const fitBadge = document.createElement('div');
                 fitBadge.className =
                     'inline-flex items-center gap-1 rounded-full bg-slate-900 text-white text-[11px] px-3 py-1';
-                const fitScore = car['ציון התאמה (0–100)'] ?? car['fit_score'] ?? '';
-                fitBadge.textContent = fitScore !== '' ? `התאמה: ${fitScore}` : 'התאמה';
+                fitBadge.textContent = fitScore !== '' ? `התאמה: ${fitScore}/100` : 'התאמה';
 
                 title.appendChild(name);
                 title.appendChild(fitBadge);
 
+                // Meta line
                 const meta = document.createElement('div');
                 meta.className = 'text-[11px] text-slate-600 flex flex-wrap gap-x-3 gap-y-1';
-                const fuel = car['דלק'] || '';
-                const gear = car['תיבה'] || '';
-                const turbo = car['טורבו'] || '';
                 meta.innerHTML = `
                     <span>דלק: <span class="font-medium">${fuel}</span></span>
                     <span> | </span>
@@ -485,21 +533,20 @@
                     <span>טורבו: <span class="font-medium">${turbo}</span></span>
                 `;
 
+                // Main row
                 const mainRow = document.createElement('div');
                 mainRow.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-700';
-                const price = car['טווח מחיר (₪)'] ?? '';
-                const totalAnnual = car['עלות כוללת שנתית (₪)'] ?? '';
-                const reliability = car['אמינות'] ?? '';
-                const resale = car['שמירת ערך'] ?? '';
                 mainRow.innerHTML = `
-                    <div>טווח מחיר: <span class="font-medium">${price}</span></div>
+                    <div>טווח מחיר: <span class="font-medium">${priceRange}</span></div>
                     <div>עלות שנתית: <span class="font-medium">${totalAnnual}</span></div>
-                    <div>אמינות: <span class="font-medium">${reliability}</span>/10</div>
-                    <div>שמירת ערך: <span class="font-medium">${resale}</span>/10</div>
+                    <div>אמינות: <span class="font-medium">${reliability}</span>${reliability !== '' ? '/10' : ''}</div>
+                    <div>שמירת ערך: <span class="font-medium">${resale}</span>${resale !== '' ? '/10' : ''}</div>
                 `;
 
+                // Details (הסבר + שיטות)
                 const extra = document.createElement('details');
                 extra.className = 'mt-2 rounded-xl bg-slate-50 px-3 py-2';
+
                 const summary = document.createElement('summary');
                 summary.className = 'cursor-pointer text-[11px] text-slate-700 font-medium';
                 summary.textContent = 'הסבר מלא ושיטות חישוב';
@@ -508,34 +555,60 @@
                 const extraContent = document.createElement('div');
                 extraContent.className = 'mt-2 space-y-1 text-[11px] text-slate-700';
 
-                if (car['עלות דלק שנתית (₪)'] || car['עלות חשמל שנתית (₪)'] || car['annual_energy_cost']) {
+                // עלות אנרגיה
+                if (car.annual_energy_cost !== undefined && car.annual_energy_cost !== null) {
                     const energy = document.createElement('div');
-                    const costEnergy = car['עלות דלק שנתית (₪)'] || car['annual_energy_cost'] || '';
-                    energy.textContent = `עלות אנרגיה משוערת לשנה: ${costEnergy} ₪`;
+                    energy.textContent = `עלות אנרגיה משוערת לשנה: ${formatNIS(car.annual_energy_cost)} ₪`;
                     extraContent.appendChild(energy);
                 }
 
-                if (car['ביצועים']) {
+                // ביצועים / בטיחות / נוחות / התאמה
+                if (car.performance_score !== undefined && car.performance_score !== null) {
                     const perf = document.createElement('div');
-                    perf.textContent = `ביצועים: ${car['ביצועים']}/10`;
+                    perf.textContent = `ביצועים: ${car.performance_score}/10`;
                     extraContent.appendChild(perf);
                 }
-
-                if (car['בטיחות']) {
+                if (car.safety_rating !== undefined && car.safety_rating !== null) {
                     const saf = document.createElement('div');
-                    saf.textContent = `בטיחות: ${car['בטיחות']}/10`;
+                    saf.textContent = `בטיחות: ${car.safety_rating}/10`;
                     extraContent.appendChild(saf);
                 }
+                if (car.comfort_features !== undefined && car.comfort_features !== null) {
+                    const comf = document.createElement('div');
+                    comf.textContent = `נוחות: ${car.comfort_features}/10`;
+                    extraContent.appendChild(comf);
+                }
+                if (car.suitability !== undefined && car.suitability !== null) {
+                    const suit = document.createElement('div');
+                    suit.textContent = `התאמה כללית: ${car.suitability}/10`;
+                    extraContent.appendChild(suit);
+                }
 
-                if (methods && Object.keys(methods).length > 0) {
+                // הערות טקסטואליות מהמודל
+                if (car.comparison_comment) {
+                    const cmp = document.createElement('div');
+                    cmp.className = 'mt-2';
+                    cmp.textContent = car.comparison_comment;
+                    extraContent.appendChild(cmp);
+                }
+                if (car.not_recommended_reason) {
+                    const warn = document.createElement('div');
+                    warn.className = 'mt-1 text-amber-600';
+                    warn.textContent = 'הערת זהירות: ' + car.not_recommended_reason;
+                    extraContent.appendChild(warn);
+                }
+
+                // שיטות חישוב – כל המפתחות שמסתיימים ב־_method
+                const methodEntries = Object.entries(car).filter(([k, v]) => k.endsWith('_method') && v);
+                if (methodEntries.length > 0) {
                     const methodsTitle = document.createElement('div');
                     methodsTitle.className = 'mt-2 font-semibold text-[11px] text-slate-800';
                     methodsTitle.textContent = 'שיטות חישוב (לפי Gemini):';
                     extraContent.appendChild(methodsTitle);
 
-                    Object.entries(methods).forEach(([key, val]) => {
+                    methodEntries.forEach(([k, v]) => {
                         const row = document.createElement('div');
-                        row.textContent = `${key}: ${val}`;
+                        row.textContent = k + ': ' + v;
                         extraContent.appendChild(row);
                     });
                 }
@@ -563,7 +636,7 @@
             showStatus('שולח בקשה ל-Gemini 3 + חיפוש רשת...', 'info');
             submitBtn.disabled = true;
 
-            fetch('{{ url_for("recommendations_submit") }}', {
+            fetch('{{ url_for("advisor_api") }}', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
@@ -573,7 +646,7 @@
             })
             .then(async (res) => {
                 const data = await res.json().catch(() => ({}));
-                if (!res.ok || !data.ok) {
+                if (!res.ok || data.error) {
                     const errMsg = data.error || 'שגיאה כללית מהשרת.';
                     showStatus(errMsg, 'error');
                     submitBtn.disabled = false;
