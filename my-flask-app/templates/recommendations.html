@@ -1,361 +1,502 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="he" dir="rtl" class="scroll-smooth">
 <head>
-    <meta charset="UTF-8" />
-    <title>מנוע המלצות רכב – ידע רכב AI</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Tailwind CDN (בדומה לשאר האתר) -->
-    <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>yedaarechevAI - מנוע המלצות רכב</title>
+
+    <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+
     <style>
-        body {
-            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        :root {
+            --bg-dark: #0F172A;
+            --text-light: #E2E8F0;
+            --primary: #6366F1;
+            --secondary: #EC4899;
         }
+        body {
+            font-family: 'Heebo', system-ui, -apple-system, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            margin: 0;
+            overflow-x: hidden;
+        }
+        .fade-in { animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1) forwards; opacity: 0; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to   { opacity: 1; transform: translateY(0); }
+        }
+        .delay-100 { animation-delay: 100ms; }
+        .delay-200 { animation-delay: 200ms; }
+        .delay-300 { animation-delay: 300ms; }
+
+        .loader {
+            border: 3px solid rgba(255,255,255,0.2);
+            border-top-color: var(--primary);
+            border-radius: 50%;
+            width: 1.5rem;
+            height: 1.5rem;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        ::-webkit-scrollbar { width: 10px; }
+        ::-webkit-scrollbar-track { background: #1e293b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; }
+        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
     </style>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366F1',
+                        secondary: '#EC4899',
+                        dark: '#0F172A',
+                        'dark-lighter': '#1E293B',
+                        success: '#10B981',
+                        warning: '#F59E0B',
+                        danger: '#EF4444',
+                    },
+                    boxShadow: {
+                        neon: '0 0 20px rgba(99, 102, 241, 0.4)'
+                    }
+                }
+            }
+        }
+    </script>
 </head>
-<body class="bg-slate-50 text-slate-900">
-    <!-- Top bar -->
-    <header class="border-b border-slate-200 bg-white">
-        <div class="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between gap-4">
-            <div class="flex items-center gap-2">
-                <span class="inline-flex items-center justify-center rounded-full bg-slate-900 text-white w-8 h-8 text-sm font-bold">
-                    Y
-                </span>
-                <div>
-                    <div class="text-sm font-semibold text-slate-900">ידע רכב AI</div>
-                    <div class="text-xs text-slate-500">מנוע המלצות רכב חכם</div>
-                </div>
-            </div>
-            <nav class="flex items-center gap-3 text-xs sm:text-sm">
-                <a href="{{ url_for('index') }}" class="text-slate-500 hover:text-slate-900">אמינות רכב</a>
-                <span class="text-slate-300">|</span>
-                <span class="font-semibold text-slate-900">מנוע המלצות</span>
-                {% if user.is_authenticated %}
-                    <span class="text-slate-300">|</span>
-                    <a href="{{ url_for('dashboard') }}" class="text-slate-500 hover:text-slate-900">הדשבורד שלי</a>
-                    <span class="text-slate-300">|</span>
-                    <span class="text-slate-500 text-xs sm:text-sm truncate max-w-[120px]">
-                        {{ user.email }}
-                    </span>
+<body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased selection:bg-primary/30 selection:text-white">
+
+    <!-- HEADER זהה לאינדקס -->
+    <header class="sticky top-0 z-50 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
+            <a href="{{ url_for('index') }}"
+               class="flex items-center space-x-2 space-x-reverse group transition duration-300">
+                <h1 class="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
+                    yedaarechevAI
+                </h1>
+            </a>
+
+            <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
+                {% if user and user.is_authenticated %}
+                    <div class="hidden md:flex items-center gap-2 text-slate-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd"
+                                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                                  clip-rule="evenodd"/>
+                        </svg>
+                        <span>{{ user.name.split(' ')[0] if user.name else 'אורח' }}</span>
+                    </div>
+
+                    <!-- דשבורד -->
+                    <a href="{{ url_for('dashboard') }}"
+                       class="relative px-5 py-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-white border border-slate-700/50 transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+                        החיפושים שלי
+                    </a>
+
+                    <!-- מנוע המלצות – מודגש (אתה בדף הזה) -->
+                    <a href="{{ url_for('recommendations') }}"
+                       class="relative px-5 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white border border-transparent transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
+                        מנוע המלצות
+                    </a>
+
+                    <!-- התנתקות -->
+                    <a href="{{ url_for('logout') }}"
+                       class="px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none"
+                             viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                        </svg>
+                        <span class="hidden sm:inline">התנתק</span>
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('login') }}"
+                       class="px-6 py-2.5 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0">
+                        התחברות
+                    </a>
                 {% endif %}
-            </nav>
+            </div>
         </div>
     </header>
 
-    <main class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+    <!-- MAIN -->
+    <main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-24 flex flex-col items-center overflow-hidden">
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[1000px] opacity-20 pointer-events-none"
+             style="background: radial-gradient(circle, rgba(99,102,241,0.3) 0%, rgba(15,23,42,0) 70%);">
+        </div>
+
         <!-- כותרת -->
-        <section class="space-y-2">
-            <h1 class="text-xl sm:text-2xl font-bold text-slate-900">
-                מנוע המלצות רכב – גרסת ניסוי
-            </h1>
-            <p class="text-sm text-slate-600">
-                מנוע המלצות אוטומטי שמנתח פרופיל נהג מלא ומציע רשימת רכבים מתאימה לשוק הישראלי, בעזרת Gemini 3 + חיפוש רשת.
+        <div class="relative z-10 text-center max-w-4xl mx-auto mb-16 fade-in">
+            <h2 class="text-4xl md:text-6xl font-extrabold text-white mb-6 leading-tight tracking-tight">
+                מנוע המלצות רכב חכם
+                <span class="relative inline-block">
+                    <span class="absolute inset-0 bg-gradient-to-r from-primary to-secondary blur-2xl opacity-30"></span>
+                    <span class="relative text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary">
+                        על בסיס Gemini 3 + חיפוש רשת
+                    </span>
+                </span>
+            </h2>
+            <p class="text-lg md:text-2xl text-slate-400 max-w-2xl mx-auto leading-relaxed">
+                הגדר פרופיל נהג מלא – המערכת תבנה עבורך רשימת רכבים מומלצים לפי תקציב, שימוש, אמינות ועלות שנתית משוערת.
             </p>
-        </section>
+        </div>
 
-        {% if not is_owner %}
-            <!-- מצב: משתמש רגיל – עדיין לא פתוח -->
-            <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
-                <p class="text-sm text-slate-700">
-                    המודול הזה נמצא כרגע בגרסת בדיקה פנימית, ונגיש רק לבעל האתר.
-                </p>
-                <p class="mt-2 text-xs text-slate-500">
-                    בשלב ההשקה הוא יאפשר לכל משתמש להזין פרופיל שימוש, תקציב והעדפות – ולקבל רשימת רכבים מומלצים,
-                    עם עלות שנתית משוערת, אמינות ונתונים נוספים.
-                </p>
-            </section>
-        {% else %}
-            <!-- מצב: בעל האתר – טופס מלא + תוצאות -->
-            <section class="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm space-y-6">
-                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div>
-                        <h2 class="text-lg font-semibold text-slate-900">טופס הגדרת פרופיל נהג</h2>
-                        <p class="text-xs text-slate-500">
-                            הנתונים נשלחים ל־<span class="font-semibold">/advisor_api</span> ומנותחים ע״י Gemini 3 + Google Search.
+        <!-- כרטיס מרכזי -->
+        <div class="relative z-10 w-full max-w-5xl bg-dark-lighter/60 backdrop-blur-xl border border-slate-700/50 p-6 md:p-10 rounded-[2.5rem] shadow-2xl fade-in delay-100">
+            <div class="absolute inset-0 rounded-[2.5rem] border-2 border-transparent bg-gradient-to-br from-primary/20 via-transparent to-secondary/20 pointer-events-none"></div>
+
+            <div class="relative z-10 space-y-6">
+                {% if not is_owner %}
+                    <!-- מצב: לא בעל האתר – הודעת ניסוי -->
+                    <section class="space-y-4">
+                        <h3 class="text-2xl font-bold text-white">המודול עדיין בגרסת ניסוי פנימית</h3>
+                        <p class="text-sm text-slate-300">
+                            מנוע ההמלצות זמין כרגע רק לבעל המערכת לצורך בדיקות וכיול. בהשקה הרשמית כל משתמש יוכל להזין
+                            פרופיל שימוש, תקציב והעדפות – ולקבל רשימת רכבים מומלצת לשוק הישראלי.
                         </p>
-                    </div>
-                    <button
-                        id="advisor-submit-btn"
-                        class="inline-flex items-center justify-center rounded-xl bg-slate-900 text-white text-sm px-4 py-2 hover:bg-slate-800 disabled:opacity-60 disabled:cursor-not-allowed">
-                        🚗 קבל המלצות
-                    </button>
-                </div>
-
-                <!-- הודעות סטטוס -->
-                <div id="advisor-status" class="hidden text-xs rounded-xl px-3 py-2"></div>
-
-                <!-- טופס (לא נשלח ב-HTML, רק ב-JS) -->
-                <form id="advisor-form" class="space-y-6" onsubmit="return false;">
-                    <!-- שורה 1: תקציב + שנים -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">תקציב מינימום (₪)</label>
-                            <input id="budget_min" type="number" value="40000" min="0"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">תקציב מקסימום (₪)</label>
-                            <input id="budget_max" type="number" value="65000" min="0"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                        <div class="grid grid-cols-2 gap-2">
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">שנתון מינימום</label>
-                                <input id="year_min" type="number" value="2015" min="1990"
-                                       class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
+                    </section>
+                {% else %}
+                    {% if not user or not user.is_authenticated %}
+                        <!-- מחייב התחברות קודם (ליתר ביטחון) -->
+                        <div class="text-center py-10 space-y-6">
+                            <div class="relative inline-block">
+                                <div class="absolute inset-0 bg-primary/30 blur-3xl rounded-full"></div>
+                                <div class="relative bg-dark-lighter p-6 rounded-3xl border border-slate-700/50 shadow-xl">
+                                    <span class="text-6xl filter drop-shadow-lg">🔐</span>
+                                </div>
                             </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">שנתון מקסימום</label>
-                                <input id="year_max" type="number" value="2019" min="1990"
-                                       class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
+                            <h3 class="text-2xl font-bold text-white">נדרש להתחבר כדי להשתמש במנוע ההמלצות</h3>
+                            <p class="text-slate-400 text-base max-w-md mx-auto">
+                                התחבר לחשבון שלך כדי להריץ פרופיל נהג מלא ולקבל רשימת רכבים מותאמת אישית.
+                            </p>
+                            <a href="{{ url_for('login') }}"
+                               class="group relative inline-flex items-center justify-center px-10 py-4 text-lg font-bold text-white transition-all duration-300 bg-gradient-to-r from-primary to-secondary rounded-2xl hover:scale-[1.03] hover:shadow-neon active:scale-95 overflow-hidden">
+                                התחברות מהירה
+                            </a>
+                        </div>
+                    {% else %}
+                        <!-- טופס מנוע המלצות – לבעל האתר המחובר -->
+                        <section class="space-y-6">
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-700/60 pb-4">
+                                <div>
+                                    <h3 class="text-xl md:text-2xl font-bold text-white">טופס הגדרת פרופיל נהג</h3>
+                                    <p class="text-xs text-slate-400">
+                                        הנתונים נשלחים אל
+                                        <span class="font-semibold">/advisor_api</span>
+                                        ומנותחים ע״י Gemini 3 + Google Search.
+                                    </p>
+                                </div>
+                                <button
+                                    id="advisor-submit-btn"
+                                    class="inline-flex items-center justify-center rounded-2xl bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white text-sm md:text-base px-5 py-3 font-semibold shadow-lg shadow-primary/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all">
+                                    🚗 קבל המלצות
+                                </button>
                             </div>
-                        </div>
-                    </div>
 
-                    <!-- שורה 2: דלק / גיר / טורבו -->
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">סוגי דלק מועדפים</label>
-                            <div class="flex flex-wrap gap-2 text-xs">
-                                <label class="inline-flex items-center gap-1">
-                                    <input type="checkbox" class="fuel-input" value="בנזין" checked>
-                                    <span>בנזין</span>
-                                </label>
-                                <label class="inline-flex items-center gap-1">
-                                    <input type="checkbox" class="fuel-input" value="היברידי">
-                                    <span>היברידי</span>
-                                </label>
-                                <label class="inline-flex items-center gap-1">
-                                    <input type="checkbox" class="fuel-input" value="דיזל">
-                                    <span>דיזל</span>
-                                </label>
-                                <label class="inline-flex items-center gap-1">
-                                    <input type="checkbox" class="fuel-input" value="חשמלי">
-                                    <span>חשמלי</span>
-                                </label>
+                            <!-- הודעת סטטוס -->
+                            <div id="advisor-status" class="hidden text-xs rounded-xl px-3 py-2 mt-1"></div>
+
+                            <!-- טופס (נאסף ב-JS בלבד) -->
+                            <form id="advisor-form" class="space-y-6" onsubmit="return false;">
+                                <!-- תקציב + שנתונים -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">תקציב מינימום (₪)</label>
+                                        <input id="budget_min" type="number" value="40000" min="0"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">תקציב מקסימום (₪)</label>
+                                        <input id="budget_max" type="number" value="65000" min="0"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">שנתון מינימום</label>
+                                            <input id="year_min" type="number" value="2015" min="1990"
+                                                   class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">שנתון מקסימום</label>
+                                            <input id="year_max" type="number" value="2019" min="1990"
+                                                   class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary transition">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- דלק / גיר / טורבו -->
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">סוגי דלק מועדפים</label>
+                                        <div class="flex flex-wrap gap-2 text-xs text-slate-200">
+                                            <label class="inline-flex items-center gap-1">
+                                                <input type="checkbox" class="fuel-input rounded border-slate-600 bg-slate-900/60" value="בנזין" checked>
+                                                <span>בנזין</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-1">
+                                                <input type="checkbox" class="fuel-input rounded border-slate-600 bg-slate-900/60" value="היברידי">
+                                                <span>היברידי</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-1">
+                                                <input type="checkbox" class="fuel-input rounded border-slate-600 bg-slate-900/60" value="דיזל">
+                                                <span>דיזל</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-1">
+                                                <input type="checkbox" class="fuel-input rounded border-slate-600 bg-slate-900/60" value="חשמלי">
+                                                <span>חשמלי</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">תיבת הילוכים</label>
+                                        <div class="flex flex-wrap gap-2 text-xs text-slate-200">
+                                            <label class="inline-flex items-center gap-1">
+                                                <input type="checkbox" class="gear-input rounded border-slate-600 bg-slate-900/60" value="אוטומטית" checked>
+                                                <span>אוטומטית</span>
+                                            </label>
+                                            <label class="inline-flex items-center gap-1">
+                                                <input type="checkbox" class="gear-input rounded border-slate-600 bg-slate-900/60" value="ידנית">
+                                                <span>ידנית</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">טורבו</label>
+                                        <select id="turbo_choice_he"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+                                            <option selected>לא משנה</option>
+                                            <option>כן</option>
+                                            <option>לא</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- שימוש וסגנון -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div class="md:col-span-2">
+                                        <label class="block text-xs mb-1 text-slate-300">תיאור השימוש ברכב</label>
+                                        <textarea id="main_use" rows="2"
+                                                  class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">נסיעה יומיומית לעבודה וטיולים קצרים</textarea>
+                                    </div>
+                                    <div class="space-y-3">
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">נסועה שנתית (ק״מ)</label>
+                                            <input id="annual_km" type="number" value="15000" min="0" step="1000"
+                                                   class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">גיל נהג</label>
+                                            <input id="driver_age" type="number" value="21" min="16" max="100"
+                                                   class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- סגנון נהיגה / מרכב / מושבים -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">סגנון מרכב מועדף</label>
+                                        <select id="body_style"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+                                            <option selected>כללי</option>
+                                            <option>סדאן</option>
+                                            <option>האצ'בק</option>
+                                            <option>קרוסאובר/ג'יפון</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">סגנון נהיגה</label>
+                                        <select id="driving_style"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+                                            <option selected>רגוע ונינוח</option>
+                                            <option>דינמי וספורטיבי</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">מספר מקומות</label>
+                                        <select id="seats_choice"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary">
+                                            <option>4</option>
+                                            <option selected>5</option>
+                                            <option>5+</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- סדר עדיפויות -->
+                                <div class="border border-slate-700 rounded-2xl p-3 bg-slate-900/40">
+                                    <p class="text-xs font-medium text-slate-200 mb-2">סדר עדיפויות (1–5)</p>
+                                    <div class="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">אמינות</label>
+                                            <input id="weight_reliability" type="number" min="1" max="5" value="5"
+                                                   class="w-full rounded-xl bg-slate-900/60 border border-slate-700 px-2 py-1.5 text-xs text-center text-white">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">שמירת ערך</label>
+                                            <input id="weight_resale" type="number" min="1" max="5" value="3"
+                                                   class="w-full rounded-xl bg-slate-900/60 border border-slate-700 px-2 py-1.5 text-xs text-center text-white">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">חיסכון בדלק</label>
+                                            <input id="weight_fuel" type="number" min="1" max="5" value="4"
+                                                   class="w-full rounded-xl bg-slate-900/60 border border-slate-700 px-2 py-1.5 text-xs text-center text-white">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">ביצועים</label>
+                                            <input id="weight_performance" type="number" min="1" max="5" value="2"
+                                                   class="w-full rounded-xl bg-slate-900/60 border border-slate-700 px-2 py-1.5 text-xs text-center text-white">
+                                        </div>
+                                        <div>
+                                            <label class="block text-xs mb-1 text-slate-300">נוחות</label>
+                                            <input id="weight_comfort" type="number" min="1" max="5" value="3"
+                                                   class="w-full rounded-xl bg-slate-900/60 border border-slate-700 px-2 py-1.5 text-xs text-center text-white">
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- משפחה / מטען / בטיחות / אבזור -->
+                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">גודל משפחה</label>
+                                        <select id="family_size"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option>1-2</option>
+                                            <option selected>3-4</option>
+                                            <option>5+</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">צורך בתא מטען</label>
+                                        <select id="cargo_need"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option>קטן</option>
+                                            <option selected>בינוני</option>
+                                            <option>גדול</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">חובה בטיחות אקטיבית?</label>
+                                        <select id="safety_required"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option selected>כן</option>
+                                            <option>לא</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">רמת אבזור</label>
+                                        <select id="trim_level"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option>בסיסי</option>
+                                            <option selected>סטנדרטי</option>
+                                            <option>עשיר</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- ביטוח / עבר נהיגה -->
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">וותק רישיון (שנים)</label>
+                                        <input id="license_years" type="number" min="0" max="50" value="2"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">מין נהג</label>
+                                        <select id="driver_gender"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option selected>זכר</option>
+                                            <option>נקבה</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">עבר ביטוחי</label>
+                                        <input id="insurance_history" type="text" value="שנתיים ללא תביעות"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                    </div>
+                                </div>
+
+                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">דוחות / שלילות</label>
+                                        <select id="violations"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option selected>אין</option>
+                                            <option>שלילה בעבר</option>
+                                            <option>נקודות פעילות</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">התחשבות בהיצע בשוק</label>
+                                        <select id="consider_supply"
+                                                class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                            <option selected>כן</option>
+                                            <option>לא</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">צבעים לפסילה (מופרדים בפסיק)</label>
+                                        <input id="excluded_colors" type="text" placeholder="למשל: שחור, לבן"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500">
+                                    </div>
+                                </div>
+
+                                <!-- מחירי דלק / חשמל -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">מחיר ליטר דלק (₪)</label>
+                                        <input id="fuel_price" type="number" step="0.1" min="1" max="20" value="7"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs mb-1 text-slate-300">מחיר חשמל לקוט״ש (₪)</label>
+                                        <input id="electricity_price" type="number" step="0.01" min="0.1" max="5" value="0.65"
+                                               class="w-full rounded-xl bg-slate-900/50 border border-slate-700 px-3 py-2 text-sm text-white">
+                                    </div>
+                                </div>
+                            </form>
+                        </section>
+
+                        <!-- תוצאות -->
+                        <section class="mt-8 space-y-4">
+                            <div id="advisor-search-info"
+                                 class="hidden bg-slate-900/80 text-slate-100 rounded-2xl p-4 text-xs space-y-2 border border-slate-700">
+                                <div class="font-semibold">סטטוס חיפוש רשת</div>
+                                <pre id="advisor-search-queries" class="whitespace-pre-wrap text-[11px] leading-relaxed"></pre>
                             </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">תיבת הילוכים</label>
-                            <div class="flex flex-wrap gap-2 text-xs">
-                                <label class="inline-flex items-center gap-1">
-                                    <input type="checkbox" class="gear-input" value="אוטומטית" checked>
-                                    <span>אוטומטית</span>
-                                </label>
-                                <label class="inline-flex items-center gap-1">
-                                    <input type="checkbox" class="gear-input" value="ידנית">
-                                    <span>ידנית</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">טורבו</label>
-                            <select id="turbo_choice_he"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>לא משנה</option>
-                                <option>כן</option>
-                                <option>לא</option>
-                            </select>
-                        </div>
-                    </div>
 
-                    <!-- שורה 3: שימוש וסגנון -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div class="md:col-span-2">
-                            <label class="block text-xs mb-1 text-slate-600">תיאור השימוש ברכב</label>
-                            <textarea id="main_use" rows="2"
-                                      class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">נסיעה יומיומית לעבודה וטיולים קצרים</textarea>
-                        </div>
-                        <div class="space-y-2">
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">נסועה שנתית (ק״מ)</label>
-                                <input id="annual_km" type="number" value="15000" min="0" step="1000"
-                                       class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">גיל נהג</label>
-                                <input id="driver_age" type="number" value="21" min="16" max="100"
-                                       class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- שורה 4: סגנון נהיגה / מרכב / מושבים -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">סגנון מרכב מועדף</label>
-                            <select id="body_style"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>כללי</option>
-                                <option>סדאן</option>
-                                <option>האצ'בק</option>
-                                <option>קרוסאובר/ג'יפון</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">סגנון נהיגה</label>
-                            <select id="driving_style"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>רגוע ונינוח</option>
-                                <option>דינמי וספורטיבי</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">מספר מקומות</label>
-                            <select id="seats_choice"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option>4</option>
-                                <option selected>5</option>
-                                <option>5+</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- שורה 5: סדר עדיפויות -->
-                    <div class="border border-slate-100 rounded-2xl p-3 bg-slate-50">
-                        <p class="text-xs font-medium text-slate-700 mb-2">סדר עדיפויות (1–5)</p>
-                        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2">
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">אמינות</label>
-                                <input id="weight_reliability" type="number" min="1" max="5" value="5"
-                                       class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-center">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">שמירת ערך</label>
-                                <input id="weight_resale" type="number" min="1" max="5" value="3"
-                                       class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-center">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">חיסכון בדלק</label>
-                                <input id="weight_fuel" type="number" min="1" max="5" value="4"
-                                       class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-center">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">ביצועים</label>
-                                <input id="weight_performance" type="number" min="1" max="5" value="2"
-                                       class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-center">
-                            </div>
-                            <div>
-                                <label class="block text-xs mb-1 text-slate-600">נוחות</label>
-                                <input id="weight_comfort" type="number" min="1" max="5" value="3"
-                                       class="w-full rounded-xl border border-slate-200 px-2 py-1.5 text-xs text-center">
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- שורה 6: משפחה / מטען / בטיחות / אבזור -->
-                    <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">גודל משפחה</label>
-                            <select id="family_size"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option>1-2</option>
-                                <option selected>3-4</option>
-                                <option>5+</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">צורך בתא מטען</label>
-                            <select id="cargo_need"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option>קטן</option>
-                                <option selected>בינוני</option>
-                                <option>גדול</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">חובה בטיחות אקטיבית?</label>
-                            <select id="safety_required"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>כן</option>
-                                <option>לא</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">רמת אבזור</label>
-                            <select id="trim_level"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option>בסיסי</option>
-                                <option selected>סטנדרטי</option>
-                                <option>עשיר</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- שורה 7: ביטוח / עבר נהיגה -->
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">וותק רישיון (שנים)</label>
-                            <input id="license_years" type="number" min="0" max="50" value="2"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">מין נהג</label>
-                            <select id="driver_gender"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>זכר</option>
-                                <option>נקבה</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">עבר ביטוחי</label>
-                            <input id="insurance_history" type="text" value="שנתיים ללא תביעות"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                    </div>
-
-                    <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">דוחות / שלילות</label>
-                            <select id="violations"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>אין</option>
-                                <option>שלילה בעבר</option>
-                                <option>נקודות פעילות</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">התחשבות בהיצע בשוק</label>
-                            <select id="consider_supply"
-                                    class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                                <option selected>כן</option>
-                                <option>לא</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">צבעים לפסילה (מופרדים בפסיק)</label>
-                            <input id="excluded_colors" type="text" placeholder="למשל: שחור, לבן"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                    </div>
-
-                    <!-- שורה 8: מחירי דלק / חשמל -->
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">מחיר ליטר דלק (₪)</label>
-                            <input id="fuel_price" type="number" step="0.1" min="1" max="20" value="7"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                        <div>
-                            <label class="block text-xs mb-1 text-slate-600">מחיר חשמל לקוט״ש (₪)</label>
-                            <input id="electricity_price" type="number" step="0.01" min="0.1" max="5" value="0.65"
-                                   class="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10">
-                        </div>
-                    </div>
-                </form>
-            </section>
-
-            <!-- תוצאות -->
-            <section class="space-y-4">
-                <div id="advisor-search-info" class="hidden bg-slate-900 text-slate-50 rounded-2xl p-4 text-xs space-y-2">
-                    <div class="font-semibold">סטטוס חיפוש רשת</div>
-                    <pre id="advisor-search-queries" class="whitespace-pre-wrap text-[11px] leading-relaxed"></pre>
-                </div>
-
-                <div id="advisor-results" class="space-y-3"></div>
-            </section>
-        {% endif %}
+                            <div id="advisor-results" class="space-y-3"></div>
+                        </section>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
     </main>
 
+    <!-- FOOTER כמו באינדקס -->
+    <footer class="mt-24 py-10 text-center border-t border-slate-800/50 bg-dark-lighter/30 backdrop-blur-md">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-6">
+            <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition-opacity">
+                <span class="font-bold text-white">yedaarechevAI</span>
+            </div>
+            <p class="text-slate-500 text-sm">© 2025 ידע רכב.</p>
+            <div class="flex gap-6 text-sm font-medium">
+                <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition-colors">מדיניות פרטיות</a>
+                <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition-colors">תקנון שימוש</a>
+            </div>
+        </div>
+    </footer>
+
+    <!-- אם יש script.js כללי, כמו באינדקס -->
+    <script src="/static/script.js"></script>
+
+    <!-- JS של מנוע ההמלצות (מותאם לצבעים כהים) -->
     <script>
     (function() {
         const submitBtn = document.getElementById('advisor-submit-btn');
@@ -364,19 +505,19 @@
         const searchInfoBox = document.getElementById('advisor-search-info');
         const searchQueriesPre = document.getElementById('advisor-search-queries');
 
-        if (!submitBtn) return; // לא בעל האתר / אין כפתור
+        if (!submitBtn) return; // אין גישה לטופס (לא בעל האתר / לא מחובר)
 
         function showStatus(text, type) {
             if (!statusBox) return;
             statusBox.classList.remove('hidden');
             statusBox.textContent = text || '';
             statusBox.className =
-                'text-xs rounded-xl px-3 py-2 ' +
+                'text-xs rounded-xl px-3 py-2 mt-2 ' +
                 (type === 'error'
-                    ? 'bg-red-50 text-red-700 border border-red-200'
+                    ? 'bg-red-950/40 text-red-200 border border-red-500/50'
                     : type === 'ok'
-                        ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                        : 'bg-slate-50 text-slate-700 border border-slate-200');
+                        ? 'bg-emerald-950/40 text-emerald-200 border border-emerald-500/40'
+                        : 'bg-slate-900/60 text-slate-100 border border-slate-700/60');
         }
 
         function clearResults() {
@@ -418,7 +559,7 @@
                 .map(s => s.trim())
                 .filter(Boolean);
 
-            const payload = {
+            return {
                 budget_min,
                 budget_max,
                 year_min,
@@ -446,8 +587,6 @@
                 fuel_price: parseFloat(val('fuel_price') || '7'),
                 electricity_price: parseFloat(val('electricity_price') || '0.65'),
             };
-
-            return payload;
         }
 
         function formatNIS(num) {
@@ -472,16 +611,15 @@
                 return;
             }
 
-            // חיפוש רשת – הצגת השאילתות
             if (Array.isArray(data.search_queries) && data.search_queries.length > 0 && searchInfoBox && searchQueriesPre) {
                 searchInfoBox.classList.remove('hidden');
                 searchQueriesPre.textContent = data.search_queries.join('\n');
             }
 
-            cars.forEach((car, idx) => {
+            cars.forEach((car) => {
                 const card = document.createElement('div');
                 card.className =
-                    'bg-white border border-slate-200 rounded-2xl p-4 shadow-sm flex flex-col gap-2 text-xs sm:text-sm';
+                    'bg-dark-lighter/80 border border-slate-700 rounded-2xl p-4 shadow-md flex flex-col gap-2 text-xs sm:text-sm text-slate-200';
 
                 const brand = car.brand || '';
                 const model = car.model || '';
@@ -492,77 +630,66 @@
                 const turbo = (car.turbo !== undefined && car.turbo !== null) ? car.turbo : '';
 
                 const priceRange = car.price_range_nis || '';
-                const reliability = car.reliability_score !== undefined && car.reliability_score !== null
-                    ? car.reliability_score
-                    : '';
-                const resale = car.resale_value !== undefined && car.resale_value !== null
-                    ? car.resale_value
-                    : '';
-                const totalAnnual = car.total_annual_cost !== undefined && car.total_annual_cost !== null
-                    ? formatNIS(car.total_annual_cost) + ' ₪'
-                    : '';
+                const reliability = car.reliability_score ?? '';
+                const resale = car.resale_value ?? '';
+                const totalAnnual =
+                    car.total_annual_cost !== undefined && car.total_annual_cost !== null
+                        ? formatNIS(car.total_annual_cost) + ' ₪'
+                        : '';
 
-                const fitScore = car.fit_score !== undefined && car.fit_score !== null
-                    ? car.fit_score
-                    : '';
+                const fitScore = car.fit_score ?? '';
 
-                // Header
                 const title = document.createElement('div');
                 title.className = 'flex items-center justify-between gap-2';
 
                 const name = document.createElement('div');
-                name.className = 'font-semibold text-slate-900';
+                name.className = 'font-semibold text-slate-50';
                 name.textContent = `${brand} ${model} ${year}`.trim();
 
                 const fitBadge = document.createElement('div');
                 fitBadge.className =
-                    'inline-flex items-center gap-1 rounded-full bg-slate-900 text-white text-[11px] px-3 py-1';
+                    'inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-primary to-secondary text-white text-[11px] px-3 py-1';
                 fitBadge.textContent = fitScore !== '' ? `התאמה: ${fitScore}/100` : 'התאמה';
 
                 title.appendChild(name);
                 title.appendChild(fitBadge);
 
-                // Meta line
                 const meta = document.createElement('div');
-                meta.className = 'text-[11px] text-slate-600 flex flex-wrap gap-x-3 gap-y-1';
+                meta.className = 'text-[11px] text-slate-400 flex flex-wrap gap-x-3 gap-y-1';
                 meta.innerHTML = `
-                    <span>דלק: <span class="font-medium">${fuel}</span></span>
-                    <span> | </span>
-                    <span>גיר: <span class="font-medium">${gear}</span></span>
-                    <span> | </span>
-                    <span>טורבו: <span class="font-medium">${turbo}</span></span>
+                    <span>דלק: <span class="font-medium text-slate-200">${fuel}</span></span>
+                    <span>|</span>
+                    <span>גיר: <span class="font-medium text-slate-200">${gear}</span></span>
+                    <span>|</span>
+                    <span>טורבו: <span class="font-medium text-slate-200">${turbo}</span></span>
                 `;
 
-                // Main row
                 const mainRow = document.createElement('div');
-                mainRow.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-700';
+                mainRow.className = 'grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px] text-slate-300';
                 mainRow.innerHTML = `
-                    <div>טווח מחיר: <span class="font-medium">${priceRange}</span></div>
-                    <div>עלות שנתית: <span class="font-medium">${totalAnnual}</span></div>
-                    <div>אמינות: <span class="font-medium">${reliability}</span>${reliability !== '' ? '/10' : ''}</div>
-                    <div>שמירת ערך: <span class="font-medium">${resale}</span>${resale !== '' ? '/10' : ''}</div>
+                    <div>טווח מחיר: <span class="font-medium text-slate-100">${priceRange}</span></div>
+                    <div>עלות שנתית: <span class="font-medium text-slate-100">${totalAnnual}</span></div>
+                    <div>אמינות: <span class="font-medium text-slate-100">${reliability}</span>${reliability !== '' ? '/10' : ''}</div>
+                    <div>שמירת ערך: <span class="font-medium text-slate-100">${resale}</span>${resale !== '' ? '/10' : ''}</div>
                 `;
 
-                // Details (הסבר + שיטות)
                 const extra = document.createElement('details');
-                extra.className = 'mt-2 rounded-xl bg-slate-50 px-3 py-2';
+                extra.className = 'mt-2 rounded-xl bg-slate-900/60 px-3 py-2 border border-slate-700/70';
 
                 const summary = document.createElement('summary');
-                summary.className = 'cursor-pointer text-[11px] text-slate-700 font-medium';
+                summary.className = 'cursor-pointer text-[11px] text-slate-100 font-medium';
                 summary.textContent = 'הסבר מלא ושיטות חישוב';
                 extra.appendChild(summary);
 
                 const extraContent = document.createElement('div');
-                extraContent.className = 'mt-2 space-y-1 text-[11px] text-slate-700';
+                extraContent.className = 'mt-2 space-y-1 text-[11px] text-slate-200';
 
-                // עלות אנרגיה
                 if (car.annual_energy_cost !== undefined && car.annual_energy_cost !== null) {
                     const energy = document.createElement('div');
                     energy.textContent = `עלות אנרגיה משוערת לשנה: ${formatNIS(car.annual_energy_cost)} ₪`;
                     extraContent.appendChild(energy);
                 }
 
-                // ביצועים / בטיחות / נוחות / התאמה
                 if (car.performance_score !== undefined && car.performance_score !== null) {
                     const perf = document.createElement('div');
                     perf.textContent = `ביצועים: ${car.performance_score}/10`;
@@ -584,7 +711,6 @@
                     extraContent.appendChild(suit);
                 }
 
-                // הערות טקסטואליות מהמודל
                 if (car.comparison_comment) {
                     const cmp = document.createElement('div');
                     cmp.className = 'mt-2';
@@ -593,16 +719,15 @@
                 }
                 if (car.not_recommended_reason) {
                     const warn = document.createElement('div');
-                    warn.className = 'mt-1 text-amber-600';
+                    warn.className = 'mt-1 text-amber-300';
                     warn.textContent = 'הערת זהירות: ' + car.not_recommended_reason;
                     extraContent.appendChild(warn);
                 }
 
-                // שיטות חישוב – כל המפתחות שמסתיימים ב־_method
                 const methodEntries = Object.entries(car).filter(([k, v]) => k.endsWith('_method') && v);
                 if (methodEntries.length > 0) {
                     const methodsTitle = document.createElement('div');
-                    methodsTitle.className = 'mt-2 font-semibold text-[11px] text-slate-800';
+                    methodsTitle.className = 'mt-2 font-semibold text-[11px] text-slate-100';
                     methodsTitle.textContent = 'שיטות חישוב (לפי Gemini):';
                     extraContent.appendChild(methodsTitle);
 
@@ -638,9 +763,7 @@
 
             fetch('{{ url_for("advisor_api") }}', {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
+                headers: { 'Content-Type': 'application/json' },
                 credentials: 'same-origin',
                 body: JSON.stringify(payload)
             })
