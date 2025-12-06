@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.3.0 (Dashboard Details + Full Car Advisor API)
+# v7.3.1 (Dashboard Details + Full Car Advisor API + Owner Flag)
 # ===================================================================
 
 import os, re, json, traceback
@@ -200,7 +200,6 @@ def call_model_with_retry(prompt: str) -> dict:
 # === 3b. Car Advisor – פונקציות עזר (Gemini 3 Pro) ===
 # ======================================================
 
-# מיפוי דלק/גיר/טורבו כמו ב-Car Advisor (גרסת Streamlit)
 fuel_map = {
     "בנזין": "gasoline",
     "היברידי": "hybrid",
@@ -380,7 +379,6 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
             continue
         car = dict(car)  # copy
 
-        # normalizing fuels/gears/turbo (English for logic)
         fuel_val = str(car.get("fuel", "")).strip()
         gear_val = str(car.get("gear", "")).strip()
         turbo_val = car.get("turbo")
@@ -400,7 +398,6 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
         else:
             turbo_norm = turbo_val
 
-        # צריכת דלק/חשמל
         avg_fc = car.get("avg_fuel_consumption")
         try:
             avg_fc_num = float(avg_fc)
@@ -412,10 +409,8 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
         annual_energy_cost = None
         if avg_fc_num is not None:
             if fuel_norm == "electric":
-                # kWh per 100km
                 annual_energy_cost = (annual_km / 100.0) * avg_fc_num * elec_price
             else:
-                # km per liter
                 annual_energy_cost = (annual_km / avg_fc_num) * fuel_price
 
         def as_float(x):
@@ -434,13 +429,12 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
             total_annual_cost = None
 
         car["annual_energy_cost"] = round(annual_energy_cost, 0) if annual_energy_cost is not None else None
-        car["annual_fuel_cost"] = car["annual_energy_cost"]  # תאימות
+        car["annual_fuel_cost"] = car["annual_energy_cost"]
         car["maintenance_cost"] = round(maintenance_cost, 0)
         car["insurance_cost"] = round(insurance_cost, 0)
         car["annual_fee"] = round(annual_fee, 0)
         car["total_annual_cost"] = round(total_annual_cost, 0) if total_annual_cost is not None else None
 
-        # מיפוי חזרה לעברית בתשובה ל-frontend
         car["fuel"] = fuel_map_he.get(fuel_norm, fuel_val or fuel_norm)
         car["gear"] = gear_map_he.get(gear_norm, gear_val or gear_norm)
         car["turbo"] = turbo_map_he.get(turbo_norm, turbo_val)
@@ -460,6 +454,19 @@ def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
 def create_app():
     app = Flask(__name__)
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
+
+    # ---- בעל מערכת (למנוע ההמלצות) ----
+    OWNER_EMAILS = [
+        e.strip().lower()
+        for e in os.environ.get("OWNER_EMAILS", "").split(",")
+        if e.strip()
+    ]
+
+    def is_owner_user() -> bool:
+        if not current_user.is_authenticated:
+            return False
+        email = (getattr(current_user, "email", "") or "").lower()
+        return email in OWNER_EMAILS
 
     # פונקציה חכמה לבחירת redirect_uri
     def get_redirect_uri():
@@ -487,7 +494,6 @@ def create_app():
     login_manager.init_app(app)
     oauth.init_app(app)
 
-    # 🛠️ FIX: לא להפנות לדף index בטעות
     login_manager.login_view = 'login'
 
     # Gemini key
@@ -528,7 +534,8 @@ def create_app():
         return render_template(
             'index.html',
             car_models_data=israeli_car_market_full_compilation,
-            user=current_user
+            user=current_user,
+            is_owner=is_owner_user()
         )
 
     @app.route('/login')
@@ -570,11 +577,11 @@ def create_app():
     # Legal pages
     @app.route('/privacy')
     def privacy():
-        return render_template('privacy.html', user=current_user)
+        return render_template('privacy.html', user=current_user, is_owner=is_owner_user())
 
     @app.route('/terms')
     def terms():
-        return render_template('terms.html', user=current_user)
+        return render_template('terms.html', user=current_user, is_owner=is_owner_user())
 
     @app.route('/dashboard')
     @login_required
@@ -596,7 +603,12 @@ def create_app():
                     "transmission": s.transmission or '',
                     "data": json.loads(s.result_json)
                 })
-            return render_template('dashboard.html', searches=searches_data, user=current_user)
+            return render_template(
+                'dashboard.html',
+                searches=searches_data,
+                user=current_user,
+                is_owner=is_owner_user()
+            )
         except Exception as e:
             print(f"[DASH] ❌ {e}")
             return redirect(url_for('index'))
@@ -635,7 +647,8 @@ def create_app():
         return render_template(
             'recommendations.html',
             user=current_user,
-            user_email=user_email
+            user_email=user_email,
+            is_owner=is_owner_user()
         )
 
     # ===========================
