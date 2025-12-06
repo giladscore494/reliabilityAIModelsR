@@ -36,6 +36,16 @@
         ::-webkit-scrollbar-track { background: #1e293b; }
         ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; }
         ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        
+        /* סגנון לטאבים פעילים במודאל */
+        .tab-btn.active {
+            background-color: #312e81; /* indigo-900 */
+            border-color: #6366F1;
+            color: white;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased">
@@ -104,7 +114,6 @@
                 היסטוריית בדיקות אמינות
             </button>
 
-            <!-- כפתור "היסטוריית המלצות – בקרוב" -->
             <button
                 type="button"
                 class="px-4 py-2.5 rounded-full text-xs md:text-sm font-semibold bg-slate-900/70 text-slate-500 border border-dashed border-slate-600/80 cursor-not-allowed"
@@ -183,10 +192,8 @@
     </div>
 </main>
 
-<!-- מודאל פרטי חיפוש במסך מלא -->
 <div id="details-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden">
     <div class="min-h-full w-full flex flex-col">
-        <!-- פס עליון -->
         <div class="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-800 bg-dark/80">
             <div class="space-y-0.5">
                 <p id="details-title" class="text-sm sm:text-base font-semibold text-white"></p>
@@ -201,10 +208,8 @@
             </button>
         </div>
 
-        <!-- תוכן גלול -->
         <div id="details-content" class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
-            <!-- ימולא דינמית ב-JS -->
-        </div>
+            </div>
     </div>
 </div>
 
@@ -253,55 +258,53 @@ document.addEventListener('DOMContentLoaded', function () {
             metaEl.textContent =
                 `תאריך בדיקה: ${meta.timestamp || ''} • ק״מ: ${meta.mileage_range || 'לא צוין'} • דלק: ${meta.fuel_type || 'לא צוין'} • גיר: ${meta.transmission || 'לא צוין'}`;
 
+            // חישוב ציון וצבע
             const baseRaw = data.base_score_calculated ?? null;
             let baseNum = null;
             if (baseRaw != null) {
                 const m = String(baseRaw).match(/-?\d+(\.\d+)?/);
                 baseNum = m ? parseFloat(m[0]) : null;
             }
-
             let colorClass = 'from-rose-500 to-rose-700';
             if (baseNum !== null) {
                 if (baseNum >= 80) colorClass = 'from-emerald-400 to-emerald-600';
                 else if (baseNum >= 60) colorClass = 'from-amber-400 to-amber-600';
             }
 
+            // נתונים להצגה
             const simple = data.reliability_summary_simple || '';
             const detailed = data.reliability_summary || '';
             const commonIssues = Array.isArray(data.common_issues) ? data.common_issues : [];
             const issuesWithCosts = Array.isArray(data.issues_with_costs) ? data.issues_with_costs : [];
             const competitors = Array.isArray(data.common_competitors_brief) ? data.common_competitors_brief : [];
+            const sources = Array.isArray(data.sources) ? data.sources : [];
             const sourceTag = data.source_tag || '';
             const mileageNote = data.mileage_note || '';
 
+            // הכנת HTML לכל סקשן
             let issuesList = 'לא דווחו תקלות נפוצות.';
             if (commonIssues.length) {
-                issuesList = '<ul class="list-disc list-inside space-y-1">' +
+                issuesList = '<ul class="list-disc list-inside space-y-1 text-slate-300">' +
                     commonIssues.map(i => `<li>${i}</li>`).join('') + '</ul>';
             }
 
             let costsList = '';
             if (issuesWithCosts.length) {
                 costsList = '<div class="space-y-2">' +
-                    issuesWithCosts.map(row => {
-                        const issue = row.issue || '';
-                        const cost = row.avg_cost_ILS || '';
-                        const severity = row.severity || '';
-                        const src = row.source || '';
-                        return `
-                            <div class="flex flex-wrap items-center justify-between gap-2 text-sm bg-slate-900/40 border border-slate-700/70 rounded-xl px-3 py-2">
-                                <div class="flex-1">
-                                    <div class="font-semibold text-slate-100">${issue}</div>
-                                    <div class="text-[11px] text-slate-400">${src}</div>
-                                </div>
-                                <div class="flex flex-col items-end text-xs text-slate-200">
-                                    <span class="font-bold">${cost} ₪</span>
-                                    <span class="mt-0.5 px-2 py-0.5 rounded-full border border-slate-600 text-[11px]">${severity}</span>
-                                </div>
+                    issuesWithCosts.map(row => `
+                        <div class="flex flex-wrap items-center justify-between gap-2 text-sm bg-slate-900/40 border border-slate-700/70 rounded-xl px-3 py-2">
+                            <div class="flex-1">
+                                <div class="font-semibold text-slate-100">${row.issue || ''}</div>
+                                <div class="text-[11px] text-slate-400">${row.source || ''}</div>
                             </div>
-                        `;
-                    }).join('') +
-                    '</div>';
+                            <div class="flex flex-col items-end text-xs text-slate-200">
+                                <span class="font-bold">${row.avg_cost_ILS || ''} ₪</span>
+                                <span class="mt-0.5 px-2 py-0.5 rounded-full border border-slate-600 text-[11px]">${row.severity || ''}</span>
+                            </div>
+                        </div>
+                    `).join('') + '</div>';
+            } else {
+                costsList = '<p class="text-sm text-slate-400">אין פירוט עלויות זמין.</p>';
             }
 
             let competitorsList = 'אין נתוני מתחרים.';
@@ -312,48 +315,86 @@ document.addEventListener('DOMContentLoaded', function () {
                             <span class="font-semibold text-slate-100">${c.model || ''}</span>
                             <span class="text-slate-300"> – ${c.brief_summary || ''}</span>
                         </li>
-                    `).join('') +
-                    '</ul>';
+                    `).join('') + '</ul>';
             }
 
+            let sourcesList = 'אין מקורות זמינים.';
+            if (sources.length) {
+                sourcesList = '<ul class="list-disc list-inside space-y-1 text-slate-300 text-sm">' +
+                    sources.map(s => `<li><a href="${s}" target="_blank" class="text-primary hover:underline truncate inline-block max-w-full align-bottom">${s}</a></li>`).join('') + '</ul>';
+            }
+
+            // החזרת ה-HTML המלא עם הטאבים החדשים
             content.innerHTML = `
-                <div class="max-w-4xl mx-auto space-y-8">
-                    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-                        <div class="flex items-center gap-5">
-                            <div class="w-28 h-28 rounded-full bg-gradient-to-br ${colorClass} flex flex-col items-center justify-center shadow-xl shadow-black/40">
-                                <div class="text-3xl font-black text-white">${baseNum !== null ? Math.round(baseNum) : '?'}</div>
-                                <div class="text-[11px] text-white/80 mt-1">ציון אמינות</div>
-                            </div>
-                            <div class="space-y-2">
-                                <p class="text-sm text-slate-300 whitespace-pre-line">
-                                    ${simple || 'לא זמין סיכום פשוט.'}
-                                </p>
-                                ${mileageNote ? `<p class="text-xs text-amber-300 bg-amber-950/40 border border-amber-700/60 rounded-lg px-3 py-2">${mileageNote}</p>` : ''}
-                                ${sourceTag ? `<p class="text-[11px] text-slate-500 mt-1">${sourceTag}</p>` : ''}
-                            </div>
+                <div class="max-w-4xl mx-auto">
+                    <div class="flex items-center gap-5 mb-8">
+                        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-br ${colorClass} flex flex-col items-center justify-center shadow-xl shadow-black/40 shrink-0">
+                            <div class="text-3xl font-black text-white">${baseNum !== null ? Math.round(baseNum) : '?'}</div>
+                            <div class="text-[11px] text-white/80 mt-1">ציון אמינות</div>
+                        </div>
+                        <div class="space-y-2">
+                            <h2 class="text-xl sm:text-2xl font-bold text-white">סיכום אמינות כללי</h2>
+                            <p class="text-sm text-slate-300 leading-relaxed max-w-2xl">
+                                ${simple || 'לא זמין סיכום פשוט.'}
+                            </p>
+                            ${mileageNote ? `<p class="text-xs text-amber-300 bg-amber-950/40 border border-amber-700/60 rounded-lg px-3 py-2 inline-block">${mileageNote}</p>` : ''}
                         </div>
                     </div>
 
-                    <section class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-4 md:p-6 space-y-3">
-                        <h3 class="text-lg font-bold text-white mb-1">סיכום מקצועי</h3>
-                        <p class="text-sm text-slate-300 whitespace-pre-line">${detailed || 'אין סיכום מקצועי זמין.'}</p>
-                    </section>
+                    <div class="flex flex-wrap gap-2 sm:gap-3 mb-6 border-b border-slate-700/50 pb-4">
+                        <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('summary')">
+                            <span>📄</span> סיכום
+                        </button>
+                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('faults')">
+                            <span>🔧</span> תקלות
+                        </button>
+                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('costs')">
+                            <span>💰</span> עלויות
+                        </button>
+                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('competitors')">
+                            <span>🆚</span> מתחרים
+                        </button>
+                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('sources')">
+                            <span>🔗</span> מקורות
+                        </button>
+                    </div>
 
-                    <section class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-4 md:p-6 space-y-3">
-                        <h3 class="text-lg font-bold text-white mb-1">תקלות נפוצות</h3>
-                        <div class="text-sm text-slate-200">${issuesList}</div>
-                    </section>
+                    <div id="tab-summary" class="tab-content active space-y-4">
+                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
+                            <h3 class="text-lg font-bold text-white mb-3">ניתוח מעמיק</h3>
+                            <p class="text-sm text-slate-300 leading-relaxed whitespace-pre-line">${detailed || 'אין סיכום מקצועי זמין.'}</p>
+                        </div>
+                    </div>
 
-                    <section class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-4 md:p-6 space-y-3">
-                        <h3 class="text-lg font-bold text-white mb-1">עלויות תיקון ואחזקה</h3>
-                        ${data.avg_repair_cost_ILS ? `<p class="text-sm text-slate-300 mb-2">עלות תיקון ממוצעת משוערת: <span class="font-semibold">${data.avg_repair_cost_ILS} ₪</span></p>` : ''}
-                        ${costsList || '<p class="text-sm text-slate-400">אין פירוט עלויות זמין.</p>'}
-                    </section>
+                    <div id="tab-faults" class="tab-content">
+                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
+                            <h3 class="text-lg font-bold text-white mb-3">תקלות נפוצות וריקולים</h3>
+                            ${issuesList}
+                        </div>
+                    </div>
 
-                    <section class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-4 md:p-6 space-y-3 mb-6">
-                        <h3 class="text-lg font-bold text-white mb-1">מתחרים באותה קטגוריה</h3>
-                        <div class="text-sm text-slate-200">${competitorsList}</div>
-                    </section>
+                    <div id="tab-costs" class="tab-content">
+                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
+                            <h3 class="text-lg font-bold text-white mb-3">עלויות אחזקה ותיקונים</h3>
+                            ${data.avg_repair_cost_ILS ? `<p class="text-sm text-slate-300 mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">💎 עלות תיקון שנתית ממוצעת משוערת: <span class="font-bold text-primary">${data.avg_repair_cost_ILS} ₪</span></p>` : ''}
+                            ${costsList}
+                        </div>
+                    </div>
+
+                    <div id="tab-competitors" class="tab-content">
+                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
+                            <h3 class="text-lg font-bold text-white mb-3">השוואה למתחרים</h3>
+                            ${competitorsList}
+                        </div>
+                    </div>
+
+                    <div id="tab-sources" class="tab-content">
+                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
+                            <h3 class="text-lg font-bold text-white mb-3">מקורות מידע</h3>
+                            ${sourcesList}
+                            ${sourceTag ? `<p class="text-xs text-slate-500 mt-4 pt-4 border-t border-slate-700">${sourceTag}</p>` : ''}
+                        </div>
+                    </div>
                 </div>
             `;
 
@@ -365,6 +406,27 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
+    // פונקציית העזר למעבר בין טאבים (גלובלית כדי שתעבוד מתוך ה-HTML הדינמי)
+    window.switchTab = function(tabName) {
+        // הסרת Active מכל הכפתורים והתכנים
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+        // הוספת Active לכפתור שנלחץ ולתוכן המתאים
+        // (הערה: בחיפוש לפי אינדקס או טקסט זה פחות אמין, עדיף לפי הסדר ב-DOM כי אין ID לכפתורים)
+        // כאן אנחנו מניחים שהסדר הוא קבוע: 0=summary, 1=faults, 2=costs, 3=competitors, 4=sources
+        const tabMap = { 'summary': 0, 'faults': 1, 'costs': 2, 'competitors': 3, 'sources': 4 };
+        const index = tabMap[tabName];
+        
+        if (index !== undefined) {
+            const buttons = document.querySelectorAll('.tab-btn');
+            if (buttons[index]) buttons[index].classList.add('active');
+            
+            const contentDiv = document.getElementById(`tab-${tabName}`);
+            if (contentDiv) contentDiv.classList.add('active');
+        }
+    };
+
     cards.forEach(card => {
         card.addEventListener('click', () => {
             const id = card.getAttribute('data-search-id');
@@ -374,15 +436,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     closeBtn.addEventListener('click', closeOverlay);
     overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) {
-            closeOverlay();
-        }
+        if (e.target === overlay) closeOverlay();
     });
 
     document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !overlay.classList.contains('hidden')) {
-            closeOverlay();
-        }
+        if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeOverlay();
     });
 });
 </script>
