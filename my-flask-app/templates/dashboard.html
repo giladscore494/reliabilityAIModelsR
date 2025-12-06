@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>yedaarechevAI – הדשבורד שלי</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
     <script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio"></script>
     <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -30,419 +30,342 @@
             background-color: #0F172A;
             color: #E2E8F0;
             margin: 0;
+            -webkit-tap-highlight-color: transparent; /* מסיר הבהוב כחול בלחיצה במובייל */
         }
 
-        ::-webkit-scrollbar { width: 10px; }
+        /* עיצוב פס גלילה כללי */
+        ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #1e293b; }
-        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 5px; }
-        ::-webkit-scrollbar-thumb:hover { background: #64748b; }
+        ::-webkit-scrollbar-thumb { background: #475569; border-radius: 10px; }
         
-        /* סגנון לטאבים פעילים במודאל */
+        /* הסתרת פס גלילה לטאבים במובייל לשמירה על עיצוב נקי */
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;  /* IE and Edge */
+            scrollbar-width: none;  /* Firefox */
+        }
+
+        /* סגנון לטאבים פעילים */
+        .tab-btn {
+            transition: all 0.2s ease-in-out;
+        }
         .tab-btn.active {
             background-color: #312e81; /* indigo-900 */
             border-color: #6366F1;
             color: white;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.25);
         }
+        
+        /* אנימציית כניסה לתוכן */
         .tab-content { display: none; }
-        .tab-content.active { display: block; animation: fadeIn 0.3s ease-out; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .tab-content.active { display: block; animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
     </style>
 </head>
 <body class="bg-dark text-slate-200 min-h-screen flex flex-col antialiased">
 
-<header class="sticky top-0 z-40 bg-dark/80 backdrop-blur-lg border-b border-slate-800/80 supports-[backdrop-filter]:bg-dark/60">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-        <a href="{{ url_for('index') }}" class="flex items-center space-x-2 space-x-reverse group transition duration-300">
-            <h1 class="text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
+<header class="sticky top-0 z-40 bg-dark/90 backdrop-blur-lg border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+        <a href="{{ url_for('index') }}" class="flex items-center">
+            <h1 class="text-xl md:text-2xl font-black tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-primary via-purple-500 to-secondary">
                 yedaarechevAI
             </h1>
         </a>
 
-        <div class="flex items-center gap-3 sm:gap-6 text-sm font-medium">
+        <div class="flex items-center gap-3 text-sm font-medium">
             {% if user and user.is_authenticated %}
-                <div class="hidden md:flex items-center gap-2 text-slate-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+                <span class="text-slate-400 hidden sm:inline">{{ user.name.split(' ')[0] if user.name else 'אורח' }}</span>
+                <a href="{{ url_for('logout') }}" class="p-2 rounded-full text-slate-300 hover:bg-white/10">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                     </svg>
-                    <span>{{ user.name.split(' ')[0] if user.name else 'אורח' }}</span>
-                </div>
-
-                <a href="{{ url_for('dashboard') }}" class="relative px-5 py-2.5 rounded-full bg-slate-100 text-slate-900 font-bold border border-slate-700/50 transition-all hover:-translate-y-0.5">
-                    החיפושים שלי
-                </a>
-
-                {% if is_owner %}
-                    <a href="{{ url_for('recommendations') }}"
-                       class="relative px-5 py-2.5 rounded-full bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 text-white border border-transparent transition-all hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0">
-                        מנוע המלצות
-                    </a>
-                {% endif %}
-
-                <a href="{{ url_for('logout') }}" class="px-4 py-2 rounded-full text-slate-300 hover:text-white hover:bg-white/10 transition-all flex items-center gap-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    <span class="hidden sm:inline">התנתק</span>
                 </a>
             {% else %}
-                <a href="{{ url_for('login') }}" class="px-6 py-2.5 rounded-full font-bold bg-gradient-to-r from-primary to-secondary hover:from-primary/90 hover:to-secondary/90 transition-all text-white shadow-lg shadow-primary/25 hover:shadow-primary/40 hover:-translate-y-0.5 active:translate-y-0">
-                    התחברות
-                </a>
+                <a href="{{ url_for('login') }}" class="px-4 py-1.5 rounded-full bg-primary text-white text-sm font-bold">התחברות</a>
             {% endif %}
         </div>
     </div>
 </header>
 
-<main class="flex-grow relative container mx-auto px-4 sm:px-6 lg:px-8 py-10 md:py-16">
-    <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[900px] h-[900px] opacity-20 pointer-events-none"
-         style="background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, rgba(15,23,42,0) 70%);"></div>
-
-    <div class="relative z-10 mb-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-        <div>
-            <h2 class="text-3xl md:text-4xl font-extrabold text-white mb-2">החיפושים שלי</h2>
-            <p class="text-slate-400 max-w-2xl text-sm md:text-base">
-                כאן תראה את כל בדיקות האמינות שביצעת. לחיצה על כרטיס תפתח את הדוח המלא במסך מלא.
-            </p>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-3">
-            <button
-                type="button"
-                class="px-4 py-2.5 rounded-full text-xs md:text-sm font-semibold bg-slate-800 text-slate-100 border border-slate-600 hover:bg-slate-700 transition-colors"
-            >
-                היסטוריית בדיקות אמינות
-            </button>
-
-            <button
-                type="button"
-                class="px-4 py-2.5 rounded-full text-xs md:text-sm font-semibold bg-slate-900/70 text-slate-500 border border-dashed border-slate-600/80 cursor-not-allowed"
-                title="בקרוב"
-            >
-                היסטוריית המלצות (בקרוב)
-            </button>
+<main class="flex-grow relative container mx-auto px-4 py-8 pb-24">
+    <div class="mb-8">
+        <h2 class="text-2xl md:text-3xl font-extrabold text-white mb-2">החיפושים שלי</h2>
+        <div class="flex gap-2 overflow-x-auto no-scrollbar pb-2">
+            <span class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-800 text-slate-100 border border-slate-600">
+                היסטוריית בדיקות
+            </span>
+            <span class="whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-semibold bg-slate-900/50 text-slate-500 border border-slate-700/50">
+                המלצות (בקרוב)
+            </span>
         </div>
     </div>
 
     <div class="relative z-10">
         {% if searches and searches|length > 0 %}
-            <div class="grid gap-4 md:gap-6">
+            <div class="grid gap-4">
                 {% for s in searches %}
                     <article
-                        class="group bg-dark-lighter/70 border border-slate-700/70 rounded-2xl p-4 md:p-5 cursor-pointer hover:border-primary/70 hover:shadow-lg hover:-translate-y-0.5 transition-all"
+                        class="bg-dark-lighter/80 border border-slate-700/60 rounded-xl p-4 active:scale-[0.98] transition-transform cursor-pointer shadow-lg"
                         data-search-id="{{ s.id }}"
+                        onclick="openDetails('{{ s.id }}')"
                     >
-                        <div class="flex items-start justify-between gap-4">
-                            <div class="space-y-1">
-                                <div class="flex items-center gap-2 flex-wrap">
-                                    <h3 class="text-lg md:text-xl font-bold text-white">
-                                        {{ s.make|title }} {{ s.model|title }} <span class="text-primary">({{ s.year }})</span>
-                                    </h3>
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                                    {{ s.make|title }} {{ s.model|title }}
+                                    <span class="text-primary text-base font-normal">{{ s.year }}</span>
+                                </h3>
+                                <div class="flex items-center gap-2 mt-1 text-xs text-slate-400">
+                                    <span>{{ s.timestamp }}</span>
                                     {% if s.mileage_range %}
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs bg-slate-800 text-slate-200 border border-slate-600/70">
-                                            {{ s.mileage_range }}
-                                        </span>
+                                        <span>•</span>
+                                        <span>{{ s.mileage_range }}</span>
                                     {% endif %}
                                 </div>
-                                <p class="text-xs md:text-sm text-slate-400">
-                                    נבדק בתאריך {{ s.timestamp }}
-                                </p>
                             </div>
 
                             {% set base = s.data.get('base_score_calculated') %}
                             {% if base %}
                                 {% set base_num = (base|string).split()[0]|float(default=0) %}
-                                {% if base_num >= 80 %}
-                                    {% set badge_color = 'from-emerald-400 to-emerald-600' %}
-                                {% elif base_num >= 60 %}
-                                    {% set badge_color = 'from-amber-400 to-amber-600' %}
-                                {% else %}
-                                    {% set badge_color = 'from-rose-400 to-rose-600' %}
+                                {% if base_num >= 80 %} {% set score_col = 'text-emerald-400' %}
+                                {% elif base_num >= 60 %} {% set score_col = 'text-amber-400' %}
+                                {% else %} {% set score_col = 'text-rose-400' %}
                                 {% endif %}
-                                <div class="flex flex-col items-center justify-center min-w-[80px]">
-                                    <div class="w-14 h-14 rounded-full bg-gradient-to-br {{ badge_color }} flex items-center justify-center text-white font-extrabold text-xl shadow-lg shadow-black/40">
-                                        {{ base_num|round(0, 'floor')|int }}
-                                    </div>
-                                    <span class="mt-1 text-[11px] text-slate-400">ציון אמינות</span>
+                                <div class="text-2xl font-black {{ score_col }}">
+                                    {{ base_num|round(0, 'floor')|int }}
                                 </div>
                             {% endif %}
                         </div>
-
-                        {% set simple = s.data.get('reliability_summary_simple') %}
-                        {% if simple %}
-                            <p class="mt-3 text-sm text-slate-300 line-clamp-2">
-                                {{ simple }}
-                            </p>
-                        {% endif %}
                     </article>
                 {% endfor %}
             </div>
         {% else %}
-            <div class="max-w-xl mx-auto text-center bg-dark-lighter/60 border border-slate-700/60 rounded-3xl p-10">
-                <h3 class="text-2xl font-bold text-white mb-3">אין עדיין חיפושים</h3>
-                <p class="text-slate-400 mb-6">
-                    לאחר שתבצע בדיקה ראשונה בעמוד הבית, היא תופיע כאן ותוכל לחזור אליה בכל רגע.
-                </p>
-                <a href="{{ url_for('index') }}"
-                   class="inline-flex items-center justify-center px-8 py-3 rounded-full bg-gradient-to-r from-primary to-secondary text-white font-semibold text-sm hover:from-primary/90 hover:to-secondary/90 transition-all">
-                    לבצע בדיקת אמינות ראשונה
-                </a>
+            <div class="text-center py-12 bg-dark-lighter/40 rounded-2xl border border-slate-800">
+                <p class="text-slate-400 mb-4">אין היסטוריה עדיין.</p>
+                <a href="{{ url_for('index') }}" class="px-6 py-2 rounded-full bg-primary text-white font-bold text-sm">התחל בדיקה</a>
             </div>
         {% endif %}
     </div>
 </main>
 
-<div id="details-overlay" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 hidden">
-    <div class="min-h-full w-full flex flex-col">
-        <div class="flex items-center justify-between px-4 sm:px-6 lg:px-8 py-3 border-b border-slate-800 bg-dark/80">
-            <div class="space-y-0.5">
-                <p id="details-title" class="text-sm sm:text-base font-semibold text-white"></p>
-                <p id="details-meta" class="text-xs text-slate-400"></p>
-            </div>
-            <button
-                type="button"
-                id="details-close-btn"
-                class="inline-flex items-center justify-center w-9 h-9 rounded-full bg-slate-800 text-slate-100 hover:bg-slate-700 border border-slate-700/80 transition-colors"
-            >
-                ✕
-            </button>
+<div id="details-overlay" class="fixed inset-0 bg-dark z-50 hidden flex flex-col animate-fadeIn">
+    <div class="flex items-center justify-between px-4 py-3 bg-dark-lighter border-b border-slate-700 shrink-0 shadow-md z-50">
+        <div>
+            <h3 id="details-title" class="text-lg font-bold text-white leading-tight"></h3>
+            <p id="details-meta" class="text-xs text-slate-400 mt-0.5"></p>
         </div>
-
-        <div id="details-content" class="flex-1 overflow-y-auto px-4 sm:px-6 lg:px-8 py-6">
-            </div>
+        <button id="details-close-btn" class="w-9 h-9 flex items-center justify-center rounded-full bg-slate-800 text-white border border-slate-600 active:bg-slate-700">
+            ✕
+        </button>
     </div>
+
+    <div id="details-content" class="flex-1 overflow-y-auto overflow-x-hidden bg-dark">
+        </div>
 </div>
 
-<footer class="mt-16 py-10 text-center border-t border-slate-800/50 bg-dark-lighter/40 backdrop-blur-md">
-    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-        <div class="flex items-center gap-3 opacity-75 hover:opacity-100 transition-opacity">
-            <span class="font-bold text-white">yedaarechevAI</span>
-        </div>
-        <p class="text-slate-500 text-sm">© 2025 ידע רכב.</p>
-        <div class="flex gap-6 text-sm font-medium">
-            <a href="{{ url_for('privacy') }}" class="text-slate-400 hover:text-primary transition-colors">מדיניות פרטיות</a>
-            <a href="{{ url_for('terms') }}" class="text-slate-400 hover:text-primary transition-colors">תקנון שימוש</a>
-        </div>
-    </div>
-</footer>
-
 <script>
-document.addEventListener('DOMContentLoaded', function () {
-    const cards = document.querySelectorAll('[data-search-id]');
+    // משתנים גלובליים
     const overlay = document.getElementById('details-overlay');
-    const closeBtn = document.getElementById('details-close-btn');
     const content = document.getElementById('details-content');
     const titleEl = document.getElementById('details-title');
     const metaEl = document.getElementById('details-meta');
 
-    if (!overlay) return;
-
-    function closeOverlay() {
+    // סגירת המודאל
+    document.getElementById('details-close-btn').addEventListener('click', () => {
         overlay.classList.add('hidden');
-        document.body.style.overflow = '';
-        content.innerHTML = '';
-    }
+        document.body.style.overflow = ''; // שחרור גלילה
+    });
 
+    // פונקציית פתיחה ושליפת נתונים
     async function openDetails(id) {
         try {
+            // איפוס והצגת לואדר
+            content.innerHTML = '<div class="p-8 text-center text-slate-500 flex flex-col items-center gap-2"><div class="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>טוען נתונים...</div>';
+            overlay.classList.remove('hidden');
+            document.body.style.overflow = 'hidden'; // נעילת גלילה
+
             const res = await fetch(`/search-details/${id}`);
             const payload = await res.json();
+            
             if (!res.ok || payload.error) {
-                alert(payload.error || 'שגיאה בשליפת נתוני החיפוש');
+                content.innerHTML = '<div class="p-8 text-center text-red-400">שגיאה בטעינת הנתונים</div>';
                 return;
             }
+
             const meta = payload.meta || {};
             const data = payload.data || {};
 
-            titleEl.textContent = `${meta.make || ''} ${meta.model || ''} (${meta.year || ''})`.trim();
-            metaEl.textContent =
-                `תאריך בדיקה: ${meta.timestamp || ''} • ק״מ: ${meta.mileage_range || 'לא צוין'} • דלק: ${meta.fuel_type || 'לא צוין'} • גיר: ${meta.transmission || 'לא צוין'}`;
+            // עדכון כותרת
+            titleEl.textContent = `${meta.make} ${meta.model} (${meta.year})`;
+            metaEl.textContent = `${meta.fuel_type || ''} • ${meta.transmission || ''}`;
 
             // חישוב ציון וצבע
             const baseRaw = data.base_score_calculated ?? null;
             let baseNum = null;
             if (baseRaw != null) {
                 const m = String(baseRaw).match(/-?\d+(\.\d+)?/);
-                baseNum = m ? parseFloat(m[0]) : null;
+                baseNum = m ? parseFloat(m[0]) : 0;
             }
-            let colorClass = 'from-rose-500 to-rose-700';
-            if (baseNum !== null) {
-                if (baseNum >= 80) colorClass = 'from-emerald-400 to-emerald-600';
-                else if (baseNum >= 60) colorClass = 'from-amber-400 to-amber-600';
-            }
+            let scoreBg = 'bg-rose-500';
+            if (baseNum >= 80) scoreBg = 'bg-emerald-500';
+            else if (baseNum >= 60) scoreBg = 'bg-amber-500';
 
-            // נתונים להצגה
-            const simple = data.reliability_summary_simple || '';
-            const detailed = data.reliability_summary || '';
+            // עיבוד רשימות
             const commonIssues = Array.isArray(data.common_issues) ? data.common_issues : [];
             const issuesWithCosts = Array.isArray(data.issues_with_costs) ? data.issues_with_costs : [];
             const competitors = Array.isArray(data.common_competitors_brief) ? data.common_competitors_brief : [];
             const sources = Array.isArray(data.sources) ? data.sources : [];
-            const sourceTag = data.source_tag || '';
-            const mileageNote = data.mileage_note || '';
 
-            // הכנת HTML לכל סקשן
-            let issuesList = 'לא דווחו תקלות נפוצות.';
-            if (commonIssues.length) {
-                issuesList = '<ul class="list-disc list-inside space-y-1 text-slate-300">' +
-                    commonIssues.map(i => `<li>${i}</li>`).join('') + '</ul>';
-            }
-
-            let costsList = '';
-            if (issuesWithCosts.length) {
-                costsList = '<div class="space-y-2">' +
-                    issuesWithCosts.map(row => `
-                        <div class="flex flex-wrap items-center justify-between gap-2 text-sm bg-slate-900/40 border border-slate-700/70 rounded-xl px-3 py-2">
-                            <div class="flex-1">
-                                <div class="font-semibold text-slate-100">${row.issue || ''}</div>
-                                <div class="text-[11px] text-slate-400">${row.source || ''}</div>
-                            </div>
-                            <div class="flex flex-col items-end text-xs text-slate-200">
-                                <span class="font-bold">${row.avg_cost_ILS || ''} ₪</span>
-                                <span class="mt-0.5 px-2 py-0.5 rounded-full border border-slate-600 text-[11px]">${row.severity || ''}</span>
-                            </div>
-                        </div>
-                    `).join('') + '</div>';
-            } else {
-                costsList = '<p class="text-sm text-slate-400">אין פירוט עלויות זמין.</p>';
-            }
-
-            let competitorsList = 'אין נתוני מתחרים.';
-            if (competitors.length) {
-                competitorsList = '<ul class="space-y-2">' +
-                    competitors.map(c => `
-                        <li class="bg-slate-900/40 border border-slate-700/70 rounded-xl px-3 py-2 text-sm">
-                            <span class="font-semibold text-slate-100">${c.model || ''}</span>
-                            <span class="text-slate-300"> – ${c.brief_summary || ''}</span>
-                        </li>
-                    `).join('') + '</ul>';
-            }
-
-            let sourcesList = 'אין מקורות זמינים.';
-            if (sources.length) {
-                sourcesList = '<ul class="list-disc list-inside space-y-1 text-slate-300 text-sm">' +
-                    sources.map(s => `<li><a href="${s}" target="_blank" class="text-primary hover:underline truncate inline-block max-w-full align-bottom">${s}</a></li>`).join('') + '</ul>';
-            }
-
-            // החזרת ה-HTML המלא עם הטאבים החדשים
+            // בניית ה-HTML הפנימי עם הטאבים Sticky
             content.innerHTML = `
-                <div class="max-w-4xl mx-auto">
-                    <div class="flex items-center gap-5 mb-8">
-                        <div class="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-gradient-to-br ${colorClass} flex flex-col items-center justify-center shadow-xl shadow-black/40 shrink-0">
-                            <div class="text-3xl font-black text-white">${baseNum !== null ? Math.round(baseNum) : '?'}</div>
-                            <div class="text-[11px] text-white/80 mt-1">ציון אמינות</div>
+                <div class="pb-12">
+                    <div class="p-6 text-center bg-gradient-to-b from-dark-lighter to-dark border-b border-slate-800 relative">
+                        <div class="absolute inset-0 bg-primary/5 pointer-events-none"></div>
+                        
+                        <div class="relative z-10 inline-flex flex-col items-center justify-center w-24 h-24 rounded-full ${scoreBg} text-white shadow-[0_0_30px_rgba(0,0,0,0.5)] mb-4">
+                            <span class="text-4xl font-black">${Math.round(baseNum)}</span>
+                            <span class="text-[10px] font-medium opacity-90 uppercase tracking-wide">ציון אמינות</span>
                         </div>
-                        <div class="space-y-2">
-                            <h2 class="text-xl sm:text-2xl font-bold text-white">סיכום אמינות כללי</h2>
-                            <p class="text-sm text-slate-300 leading-relaxed max-w-2xl">
-                                ${simple || 'לא זמין סיכום פשוט.'}
-                            </p>
-                            ${mileageNote ? `<p class="text-xs text-amber-300 bg-amber-950/40 border border-amber-700/60 rounded-lg px-3 py-2 inline-block">${mileageNote}</p>` : ''}
-                        </div>
+                        <p class="relative z-10 text-sm text-slate-300 px-2 leading-relaxed max-w-sm mx-auto">
+                            ${data.reliability_summary_simple || 'אין סיכום זמין.'}
+                        </p>
                     </div>
 
-                    <div class="flex flex-wrap gap-2 sm:gap-3 mb-6 border-b border-slate-700/50 pb-4">
-                        <button class="tab-btn active px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('summary')">
+                    <div class="sticky top-0 bg-dark/95 backdrop-blur-md z-40 border-b border-slate-700/50 py-3 px-2 overflow-x-auto no-scrollbar whitespace-nowrap flex gap-3 shadow-lg">
+                        <button onclick="switchTab('summary')" class="tab-btn active px-4 py-2 rounded-lg text-sm font-bold border border-slate-600/50 text-slate-300 bg-slate-800/50 flex items-center gap-2">
                             <span>📄</span> סיכום
                         </button>
-                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('faults')">
+                        <button onclick="switchTab('faults')" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold border border-slate-600/50 text-slate-300 bg-slate-800/50 flex items-center gap-2">
                             <span>🔧</span> תקלות
                         </button>
-                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('costs')">
+                        <button onclick="switchTab('costs')" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold border border-slate-600/50 text-slate-300 bg-slate-800/50 flex items-center gap-2">
                             <span>💰</span> עלויות
                         </button>
-                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('competitors')">
+                        <button onclick="switchTab('competitors')" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold border border-slate-600/50 text-slate-300 bg-slate-800/50 flex items-center gap-2">
                             <span>🆚</span> מתחרים
                         </button>
-                        <button class="tab-btn px-4 py-2 rounded-lg text-sm font-medium bg-slate-800 text-slate-300 border border-slate-600/50 hover:bg-slate-700 transition-all flex items-center gap-2" onclick="switchTab('sources')">
+                        <button onclick="switchTab('sources')" class="tab-btn px-4 py-2 rounded-lg text-sm font-bold border border-slate-600/50 text-slate-300 bg-slate-800/50 flex items-center gap-2">
                             <span>🔗</span> מקורות
                         </button>
                     </div>
 
-                    <div id="tab-summary" class="tab-content active space-y-4">
-                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
-                            <h3 class="text-lg font-bold text-white mb-3">ניתוח מעמיק</h3>
-                            <p class="text-sm text-slate-300 leading-relaxed whitespace-pre-line">${detailed || 'אין סיכום מקצועי זמין.'}</p>
+                    <div class="p-4 sm:p-6 min-h-[300px]">
+                        
+                        <div id="tab-summary" class="tab-content active animate-fadeIn">
+                            <div class="bg-dark-lighter rounded-2xl p-5 border border-slate-700/50 shadow-sm">
+                                <h4 class="text-primary font-bold mb-3 text-base flex items-center gap-2">
+                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                                    ניתוח מקצועי מעמיק
+                                </h4>
+                                <p class="text-sm text-slate-300 leading-7 whitespace-pre-line">
+                                    ${data.reliability_summary || 'אין מידע נוסף.'}
+                                </p>
+                            </div>
                         </div>
-                    </div>
 
-                    <div id="tab-faults" class="tab-content">
-                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
-                            <h3 class="text-lg font-bold text-white mb-3">תקלות נפוצות וריקולים</h3>
-                            ${issuesList}
+                        <div id="tab-faults" class="tab-content animate-fadeIn">
+                            <div class="space-y-3">
+                                ${commonIssues.length ? commonIssues.map(issue => `
+                                    <div class="flex items-start gap-3 bg-dark-lighter p-4 rounded-xl border border-slate-700/50 shadow-sm">
+                                        <span class="text-red-400 mt-0.5 shrink-0">⚠️</span>
+                                        <p class="text-sm text-slate-200 leading-relaxed">${issue}</p>
+                                    </div>
+                                `).join('') : '<div class="p-4 text-center text-slate-500 bg-dark-lighter rounded-xl">לא דווחו תקלות מיוחדות.</div>'}
+                            </div>
                         </div>
-                    </div>
 
-                    <div id="tab-costs" class="tab-content">
-                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
-                            <h3 class="text-lg font-bold text-white mb-3">עלויות אחזקה ותיקונים</h3>
-                            ${data.avg_repair_cost_ILS ? `<p class="text-sm text-slate-300 mb-4 bg-slate-800/50 p-3 rounded-lg border border-slate-700">💎 עלות תיקון שנתית ממוצעת משוערת: <span class="font-bold text-primary">${data.avg_repair_cost_ILS} ₪</span></p>` : ''}
-                            ${costsList}
+                        <div id="tab-costs" class="tab-content animate-fadeIn">
+                            ${data.avg_repair_cost_ILS ? `
+                                <div class="bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20 p-5 rounded-2xl mb-5 text-center">
+                                    <div class="text-xs text-primary font-bold uppercase tracking-wider mb-1">עלות אחזקה שנתית ממוצעת</div>
+                                    <div class="text-3xl font-black text-white">${data.avg_repair_cost_ILS} ₪</div>
+                                </div>
+                            ` : ''}
+                            
+                            <div class="space-y-3">
+                                ${issuesWithCosts.length ? issuesWithCosts.map(item => `
+                                    <div class="flex items-center justify-between bg-dark-lighter p-4 rounded-xl border border-slate-700/50 shadow-sm">
+                                        <div class="pr-2">
+                                            <div class="text-sm text-slate-200 font-bold mb-0.5">${item.issue}</div>
+                                            <div class="text-[10px] text-slate-500">${item.source || 'מקור לא צוין'}</div>
+                                        </div>
+                                        <div class="shrink-0 text-right">
+                                            <div class="text-sm font-bold text-white bg-slate-700/80 px-2.5 py-1 rounded-lg border border-slate-600">${item.avg_cost_ILS} ₪</div>
+                                            <div class="text-[10px] text-slate-400 mt-1 mr-1">${item.severity || ''}</div>
+                                        </div>
+                                    </div>
+                                `).join('') : '<p class="text-sm text-slate-400 text-center">אין פירוט עלויות.</p>'}
+                            </div>
                         </div>
-                    </div>
 
-                    <div id="tab-competitors" class="tab-content">
-                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
-                            <h3 class="text-lg font-bold text-white mb-3">השוואה למתחרים</h3>
-                            ${competitorsList}
+                        <div id="tab-competitors" class="tab-content animate-fadeIn">
+                            <div class="space-y-3">
+                                ${competitors.length ? competitors.map(comp => `
+                                    <div class="bg-dark-lighter p-4 rounded-xl border border-slate-700/50 shadow-sm">
+                                        <h5 class="font-bold text-white mb-2 flex items-center gap-2">
+                                            <span class="w-2 h-2 rounded-full bg-secondary"></span>
+                                            ${comp.model}
+                                        </h5>
+                                        <p class="text-xs text-slate-300 leading-relaxed pl-4 border-r-2 border-slate-700 pr-3">${comp.brief_summary}</p>
+                                    </div>
+                                `).join('') : '<p class="text-slate-500 text-center">אין נתוני מתחרים.</p>'}
+                            </div>
                         </div>
-                    </div>
 
-                    <div id="tab-sources" class="tab-content">
-                        <div class="bg-dark-lighter/60 border border-slate-700/60 rounded-2xl p-5">
-                            <h3 class="text-lg font-bold text-white mb-3">מקורות מידע</h3>
-                            ${sourcesList}
-                            ${sourceTag ? `<p class="text-xs text-slate-500 mt-4 pt-4 border-t border-slate-700">${sourceTag}</p>` : ''}
+                        <div id="tab-sources" class="tab-content animate-fadeIn">
+                            <div class="bg-dark-lighter p-5 rounded-2xl border border-slate-700/50">
+                                <ul class="space-y-3">
+                                    ${sources.length ? sources.map(s => `
+                                        <li class="flex items-start gap-2 overflow-hidden">
+                                            <span class="text-slate-500 mt-1">🔗</span>
+                                            <a href="${s}" target="_blank" class="text-sm text-primary hover:underline truncate w-full dir-ltr text-left">${s}</a>
+                                        </li>
+                                    `).join('') : '<li class="text-slate-500 text-center text-sm">אין מקורות זמינים.</li>'}
+                                </ul>
+                                ${data.source_tag ? `<div class="mt-6 pt-4 border-t border-slate-700 text-[10px] text-slate-500 text-center">${data.source_tag}</div>` : ''}
+                            </div>
                         </div>
+
                     </div>
                 </div>
             `;
 
-            overlay.classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
         } catch (err) {
             console.error(err);
-            alert('שגיאה בטעינת הדוח המלא');
+            content.innerHTML = '<div class="p-8 text-center text-red-400">שגיאה לא צפויה</div>';
         }
     }
 
-    // פונקציית העזר למעבר בין טאבים (גלובלית כדי שתעבוד מתוך ה-HTML הדינמי)
-    window.switchTab = function(tabName) {
-        // הסרת Active מכל הכפתורים והתכנים
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-        document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
-
-        // הוספת Active לכפתור שנלחץ ולתוכן המתאים
-        // (הערה: בחיפוש לפי אינדקס או טקסט זה פחות אמין, עדיף לפי הסדר ב-DOM כי אין ID לכפתורים)
-        // כאן אנחנו מניחים שהסדר הוא קבוע: 0=summary, 1=faults, 2=costs, 3=competitors, 4=sources
-        const tabMap = { 'summary': 0, 'faults': 1, 'costs': 2, 'competitors': 3, 'sources': 4 };
-        const index = tabMap[tabName];
-        
-        if (index !== undefined) {
-            const buttons = document.querySelectorAll('.tab-btn');
-            if (buttons[index]) buttons[index].classList.add('active');
-            
-            const contentDiv = document.getElementById(`tab-${tabName}`);
-            if (contentDiv) contentDiv.classList.add('active');
-        }
-    };
-
-    cards.forEach(card => {
-        card.addEventListener('click', () => {
-            const id = card.getAttribute('data-search-id');
-            if (id) openDetails(id);
+    // פונקציית החלפת טאבים
+    window.switchTab = function(name) {
+        // איפוס כפתורים
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active', 'bg-slate-700', 'border-primary', 'text-white');
+            btn.classList.add('border-slate-600/50', 'text-slate-300', 'bg-slate-800/50');
         });
-    });
+        
+        // איפוס תכנים
+        document.querySelectorAll('.tab-content').forEach(div => div.classList.remove('active'));
 
-    closeBtn.addEventListener('click', closeOverlay);
-    overlay.addEventListener('click', (e) => {
-        if (e.target === overlay) closeOverlay();
-    });
-
-    document.addEventListener('keydown', (e) => {
-        if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeOverlay();
-    });
-});
+        // הפעלת הנוכחי
+        const activeBtn = event.currentTarget;
+        activeBtn.classList.remove('border-slate-600/50', 'text-slate-300', 'bg-slate-800/50');
+        activeBtn.classList.add('active', 'bg-slate-700', 'border-primary', 'text-white');
+        
+        document.getElementById(`tab-${name}`).classList.add('active');
+        
+        // גלילה חזרה למעלה אם המשתמש למטה מדי
+        const contentContainer = document.getElementById('details-content');
+        if (contentContainer.scrollTop > 300) {
+            contentContainer.scrollTo({ top: 280, behavior: 'smooth' });
+        }
+    }
 </script>
 
 </body>
