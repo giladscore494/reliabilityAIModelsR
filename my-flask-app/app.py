@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.3.1 (Dashboard Details + Full Car Advisor API + Owner Flag)
+# v7.3.2 (Dashboard Details + Full Car Advisor API + Owner Flag + Template Globals)
 # ===================================================================
 
 import os, re, json, traceback
@@ -57,6 +57,7 @@ class User(db.Model, UserMixin):
     name = db.Column(db.String(100))
     searches = db.relationship('SearchHistory', backref='user', lazy=True)
 
+
 class SearchHistory(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
@@ -69,12 +70,14 @@ class SearchHistory(db.Model):
     transmission = db.Column(db.String(100))
     result_json = db.Column(db.Text, nullable=False)
 
+
 # ==================================
 # === 3. פונקציות עזר (גלובלי) ===
 # ==================================
 @login_manager.user_loader
 def load_user(user_id):
     return User.query.get(int(user_id))
+
 
 # --- טעינת המילון ---
 try:
@@ -91,11 +94,14 @@ except Exception as e:
     print("[DICT] ⚠️ Fallback applied — Toyota only")
 
 import re as _re
+
+
 def normalize_text(s: Any) -> str:
     if s is None:
         return ""
     s = _re.sub(r"\(.*?\)", " ", str(s)).strip().lower()
     return _re.sub(r"\s+", " ", s)
+
 
 def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
     m = normalize_text(mileage_range or "")
@@ -108,6 +114,7 @@ def mileage_adjustment(mileage_range: str) -> Tuple[int, Optional[str]]:
     if "100" in m and "150" in m:
         return -5, "הציון הותאם מעט מטה עקב קילומטראז׳ בינוני-גבוה (100–150 אלף ק״מ)."
     return 0, None
+
 
 def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, Optional[str]]:
     try:
@@ -125,6 +132,7 @@ def apply_mileage_logic(model_output: dict, mileage_range: str) -> Tuple[dict, O
         return model_output, note
     except Exception:
         return model_output, None
+
 
 def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_range):
     extra = f" תת-דגם/תצורה: {sub_model}" if sub_model else ""
@@ -165,6 +173,7 @@ def build_prompt(make, model, sub_model, year, fuel_type, transmission, mileage_
 תיבת הילוכים: {transmission}
 כתוב בעברית בלבד.
 """.strip()
+
 
 def call_model_with_retry(prompt: str) -> dict:
     last_err = None
@@ -227,6 +236,7 @@ turbo_map_he = {
     False: "לא",
 }
 
+
 def make_user_profile(
     budget_min,
     budget_max,
@@ -264,6 +274,7 @@ def make_user_profile(
         "driving_style": driving_style,
         "excluded_colors": excluded_colors,
     }
+
 
 def car_advisor_call_gemini_with_search(profile: dict) -> dict:
     """
@@ -355,6 +366,7 @@ Return ONLY raw JSON. Do not add any backticks or explanation text.
             return {"_error": "JSON decode error from Gemini Car Advisor", "_raw": text}
     except Exception as e:
         return {"_error": f"Gemini Car Advisor call failed: {e}"}
+
 
 def car_advisor_postprocess(profile: dict, parsed: dict) -> dict:
     """
@@ -468,6 +480,15 @@ def create_app():
         email = (getattr(current_user, "email", "") or "").lower()
         return email in OWNER_EMAILS
 
+    # ⭐ גלובלים לטמפלטים: is_logged_in, current_user, is_owner
+    @app.context_processor
+    def inject_template_globals():
+        return {
+            "is_logged_in": current_user.is_authenticated,
+            "current_user": current_user,
+            "is_owner": is_owner_user(),
+        }
+
     # פונקציה חכמה לבחירת redirect_uri
     def get_redirect_uri():
         domain = request.host or ""
@@ -533,9 +554,7 @@ def create_app():
     def index():
         return render_template(
             'index.html',
-            car_models_data=israeli_car_market_full_compilation,
-            user=current_user,
-            is_owner=is_owner_user()
+            car_models_data=israeli_car_market_full_compilation
         )
 
     @app.route('/login')
@@ -577,11 +596,11 @@ def create_app():
     # Legal pages
     @app.route('/privacy')
     def privacy():
-        return render_template('privacy.html', user=current_user, is_owner=is_owner_user())
+        return render_template('privacy.html')
 
     @app.route('/terms')
     def terms():
-        return render_template('terms.html', user=current_user, is_owner=is_owner_user())
+        return render_template('terms.html')
 
     @app.route('/dashboard')
     @login_required
@@ -605,9 +624,7 @@ def create_app():
                 })
             return render_template(
                 'dashboard.html',
-                searches=searches_data,
-                user=current_user,
-                is_owner=is_owner_user()
+                searches=searches_data
             )
         except Exception as e:
             print(f"[DASH] ❌ {e}")
@@ -646,9 +663,7 @@ def create_app():
         user_email = getattr(current_user, "email", "") if current_user.is_authenticated else ""
         return render_template(
             'recommendations.html',
-            user=current_user,
             user_email=user_email,
-            is_owner=is_owner_user()
         )
 
     # ===========================
@@ -874,6 +889,7 @@ def create_app():
         print("Initialized the database tables.")
 
     return app
+
 
 # ===================================================================
 # ===== 5. נקודת כניסה (Gunicorn/Flask) =====
