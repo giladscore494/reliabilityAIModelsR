@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # ===================================================================
 # 🚗 Car Reliability Analyzer – Israel
-# v7.3.3 (Dashboard Fix + Owner Flag + Car Advisor API)
+# v7.3.4 (Dashboard Fix + Owner Flag + Car Advisor API + Params & 18+)
 # ===================================================================
 
 import os, re, json, traceback
@@ -234,6 +234,50 @@ turbo_map_he = {
     "any": "לא משנה",
     True: "כן",
     False: "לא",
+}
+
+# 🔹 טבלת פרמטרים (לתצוגה בעברית בכל רכב)
+column_map_he = {
+    "brand": "מותג",
+    "model": "דגם",
+    "year": "שנה",
+    "fuel": "דלק",
+    "gear": "תיבה",
+    "turbo": "טורבו",
+    "engine_cc": "נפח מנוע (סמ\"ק)",
+    "price_range_nis": "טווח מחיר (₪)",
+    "avg_fuel_consumption": "צריכת דלק ממוצעת (ק\"מ/ל')",  # במובייל נעדכן לחשמל אם צריך
+    "annual_fee": "אגרה שנתית (₪)",
+    "annual_energy_cost": "עלות דלק/חשמל שנתית (₪)",
+    "annual_fuel_cost": "עלות דלק/חשמל שנתית (₪)",
+    "total_annual_cost": "עלות כוללת שנתית (₪)",
+    "reliability_score": "אמינות",
+    "maintenance_cost": "עלות אחזקה (₪/שנה)",
+    "safety_rating": "בטיחות",
+    "insurance_cost": "עלות ביטוח (₪/שנה)",
+    "resale_value": "שמירת ערך",
+    "performance_score": "ביצועים",
+    "comfort_features": "נוחות",
+    "suitability": "התאמה ללקוח",
+    "market_supply": "היצע בשוק",
+    "fit_score": "ציון התאמה כללי (0–100)",
+    "comparison_comment": "סיכום השוואתי",
+    "not_recommended_reason": "סיבת אי-המלצה (אם קיימת)",
+}
+
+# 🔹 מיפוי שיטות חישוב (הסברים לכל פרמטר עם *_method)
+method_map_he = {
+    "fuel_method": "שיטת חישוב צריכת דלק/חשמל",
+    "fee_method": "שיטת חישוב אגרה",
+    "reliability_method": "שיטת חישוב אמינות",
+    "maintenance_method": "שיטת חישוב עלות אחזקה",
+    "safety_method": "שיטת חישוב בטיחות",
+    "insurance_method": "שיטת חישוב ביטוח",
+    "resale_method": "שיטת חישוב שמירת ערך",
+    "performance_method": "שיטת חישוב ביצועים",
+    "comfort_method": "שיטת חישוב נוחות",
+    "suitability_method": "שיטת חישוב התאמה",
+    "supply_method": "שיטת קביעת היצע",
 }
 
 
@@ -480,7 +524,6 @@ def create_app():
         email = (getattr(current_user, "email", "") or "").lower()
         return email in OWNER_EMAILS
 
-    # אפשר להשאיר את זה – לא מזיק, אבל אנחנו גם מעבירים user ידנית
     @app.context_processor
     def inject_template_globals():
         return {
@@ -690,11 +733,23 @@ def create_app():
         מקבל profile מה-JS (recommendations.js),
         בונה user_profile מלא כמו ב-Car Advisor (Streamlit),
         קורא ל-Gemini 3 Pro ומחזיר JSON מוכן להצגה.
+        כולל:
+        - בדיקת הסכמה מעל גיל 18 + תנאי שימוש.
+        - החזרת מיפוי פרמטרים ושיטות חישוב ל-frontend.
         """
         try:
             payload = request.get_json(force=True) or {}
         except Exception:
             return jsonify({"error": "קלט JSON לא תקין"}), 400
+
+        # --- חובה: משתמש מאשר שהוא מעל 18 ומקבל את התנאים ---
+        is_over_18 = payload.get("is_over_18")
+        if isinstance(is_over_18, str):
+            is_over_18 = is_over_18.strip().lower() in ("1", "true", "yes", "on", "y", "כן")
+        if not is_over_18:
+            return jsonify({
+                "error": "חובה לאשר שאתה מעל גיל 18 ומקבל את תנאי השימוש לפני קבלת המלצות."
+            }), 400
 
         try:
             # ---- שלב 1: בסיסי ----
@@ -804,6 +859,11 @@ def create_app():
             return jsonify({"error": parsed["_error"], "raw": parsed.get("_raw")}), 500
 
         result = car_advisor_postprocess(user_profile, parsed)
+
+        # החזרת מיפוי כל הפרמטרים + שיטות ההסבר ל-frontend
+        result["column_map_he"] = column_map_he
+        result["method_map_he"] = method_map_he
+
         return jsonify(result)
 
     @app.route('/analyze', methods=['POST'])
