@@ -15,6 +15,21 @@
 
     if (!form) return;
 
+    // === מיפוי שם פרמטרי ה-method לעברית (כמו ב-Python) ===
+    const methodLabelMap = {
+        fuel_method: "שיטת חישוב צריכת דלק/חשמל",
+        fee_method: "שיטת חישוב אגרה",
+        reliability_method: "שיטת חישוב אמינות",
+        maintenance_method: "שיטת חישוב עלות אחזקה",
+        safety_method: "שיטת חישוב בטיחות",
+        insurance_method: "שיטת חישוב ביטוח",
+        resale_method: "שיטת חישוב שמירת ערך",
+        performance_method: "שיטת חישוב ביצועים",
+        comfort_method: "שיטת חישוב נוחות",
+        suitability_method: "שיטת חישוב התאמה",
+        supply_method: "שיטת קביעת היצע"
+    };
+
     function setSubmitting(isSubmitting) {
         if (!submitBtn) return;
         const spinner = submitBtn.querySelector('.spinner');
@@ -101,6 +116,12 @@
         const n = Number(val);
         if (Number.isNaN(n)) return '';
         return n.toFixed(decimals);
+    }
+
+    function isEVFuel(fuelStr) {
+        if (!fuelStr) return false;
+        const f = String(fuelStr).toLowerCase();
+        return f.includes('חשמל') || f.includes('electric') || f.includes('ev');
     }
 
     // --- סיכום פרופיל משתמש אחרי קבלת התוצאות ---
@@ -287,7 +308,229 @@
         }).join('');
     }
 
-    // --- תצוגת תוצאות מלאה ---
+    // --- רנדר כרטיסיית רכב אחת כולל טבלה עם כל הפרמטרים ---
+    function renderCarCard(car, index) {
+        const title = `${car.brand || ''} ${car.model || ''}`.trim();
+        const year = car.year || '';
+        const fuel = car.fuel || '';
+        const gear = car.gear || '';
+        const turbo = car.turbo != null ? String(car.turbo) : '';
+
+        const engineCc = car.engine_cc != null ? `${safeNum(car.engine_cc)} סמ״ק` : '';
+        const priceRange = formatPriceRange(car.price_range_nis);
+
+        const isEv = isEVFuel(fuel);
+        const avgFuel = car.avg_fuel_consumption != null
+            ? (isEv
+                ? `${safeNum(car.avg_fuel_consumption, 1)} קוט״ש ל-100 ק״מ`
+                : `${safeNum(car.avg_fuel_consumption, 1)} ק״מ לליטר`)
+            : '';
+
+        const annualFee = car.annual_fee != null ? `${safeNum(car.annual_fee)} ₪` : '';
+        const reliabilityScore = car.reliability_score != null ? safeNum(car.reliability_score, 1) : '';
+        const maintenanceCost = car.maintenance_cost != null ? `${safeNum(car.maintenance_cost)} ₪` : '';
+        const safetyRating = car.safety_rating != null ? safeNum(car.safety_rating, 1) : '';
+        const insuranceCost = car.insurance_cost != null ? `${safeNum(car.insurance_cost)} ₪` : '';
+        const resaleValue = car.resale_value != null ? safeNum(car.resale_value, 1) : '';
+        const performanceScore = car.performance_score != null ? safeNum(car.performance_score, 1) : '';
+        const comfortFeatures = car.comfort_features != null ? safeNum(car.comfort_features, 1) : '';
+        const suitability = car.suitability != null ? safeNum(car.suitability, 1) : '';
+        const marketSupply = car.market_supply || '';
+
+        const fit = car.fit_score != null ? Math.round(car.fit_score) : null;
+        let fitClass = 'bg-slate-800 text-slate-100';
+        if (fit !== null) {
+            if (fit >= 85) fitClass = 'bg-emerald-500/90 text-white';
+            else if (fit >= 70) fitClass = 'bg-amber-500/90 text-slate-900';
+            else fitClass = 'bg-slate-700 text-slate-100';
+        }
+
+        const comparisonComment = car.comparison_comment || '';
+        const notRecommendedReason = car.not_recommended_reason || '';
+
+        // שדות method – טקסט כבר בעברית, רק שם שדה בעברית לפי המפה
+        const fuelMethod = car.fuel_method || '';
+        const feeMethod = car.fee_method || '';
+        const reliabilityMethod = car.reliability_method || '';
+        const maintenanceMethod = car.maintenance_method || '';
+        const safetyMethod = car.safety_method || '';
+        const insuranceMethod = car.insurance_method || '';
+        const resaleMethod = car.resale_method || '';
+        const performanceMethod = car.performance_method || '';
+        const comfortMethod = car.comfort_method || '';
+        const suitabilityMethod = car.suitability_method || '';
+        const supplyMethod = car.supply_method || '';
+
+        return `
+            <article class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 md:p-5 space-y-3">
+                <div class="flex items-start justify-between gap-3">
+                    <div>
+                        <div class="text-sm md:text-base font-bold text-slate-100">
+                            ${title || 'דגם לא ידוע'} ${year ? '· ' + year : ''}
+                        </div>
+                        <div class="text-[11px] md:text-xs text-slate-400 mt-0.5">
+                            דלק: ${fuel || 'לא צוין'} · גיר: ${gear || 'לא צוין'}${turbo ? ` · טורבו: ${turbo}` : ''}
+                        </div>
+                    </div>
+                    <div class="flex flex-col items-end gap-1">
+                        <span class="inline-flex items-center justify-center min-w-[52px] px-2 py-1 rounded-full text-[11px] font-bold ${fitClass}">
+                            ${fit !== null ? fit + '% Fit' : '?'}
+                        </span>
+                        ${marketSupply ? `
+                            <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-slate-800 text-[10px] text-slate-100 border border-slate-700">
+                                היצע בשוק: ${marketSupply}
+                            </span>
+                        ` : ''}
+                    </div>
+                </div>
+
+                <div class="overflow-x-auto mt-2">
+                    <table class="min-w-full text-right text-[11px] md:text-xs border-separate border-spacing-y-1">
+                        <tbody>
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300 w-40">מותג / דגם</th>
+                                <td class="px-2 py-1 text-slate-100">${title || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">שנה</th>
+                                <td class="px-2 py-1 text-slate-100">${year || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">נפח מנוע</th>
+                                <td class="px-2 py-1 text-slate-100">${engineCc || '-'}</td>
+                            </tr>
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">טווח מחיר משוער (₪)</th>
+                                <td class="px-2 py-1 text-slate-100">${priceRange || '-'}</td>
+                            </tr>
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">צריכת דלק/חשמל ממוצעת</th>
+                                <td class="px-2 py-1 text-slate-100">${avgFuel || '-'}</td>
+                            </tr>
+                            ${fuelMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.fuel_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${fuelMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">אגרת רישוי שנתית (₪)</th>
+                                <td class="px-2 py-1 text-slate-100">${annualFee || '-'}</td>
+                            </tr>
+                            ${feeMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.fee_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${feeMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">ציון אמינות (1–10)</th>
+                                <td class="px-2 py-1 text-slate-100">${reliabilityScore || '-'}</td>
+                            </tr>
+                            ${reliabilityMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.reliability_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${reliabilityMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">עלות אחזקה שנתית (₪)</th>
+                                <td class="px-2 py-1 text-slate-100">${maintenanceCost || '-'}</td>
+                            </tr>
+                            ${maintenanceMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.maintenance_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${maintenanceMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">ציון בטיחות (1–10)</th>
+                                <td class="px-2 py-1 text-slate-100">${safetyRating || '-'}</td>
+                            </tr>
+                            ${safetyMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.safety_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${safetyMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">עלות ביטוח שנתית (₪)</th>
+                                <td class="px-2 py-1 text-slate-100">${insuranceCost || '-'}</td>
+                            </tr>
+                            ${insuranceMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.insurance_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${insuranceMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">שמירת ערך (1–10)</th>
+                                <td class="px-2 py-1 text-slate-100">${resaleValue || '-'}</td>
+                            </tr>
+                            ${resaleMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.resale_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${resaleMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">ביצועים (1–10)</th>
+                                <td class="px-2 py-1 text-slate-100">${performanceScore || '-'}</td>
+                            </tr>
+                            ${performanceMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.performance_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${performanceMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">נוחות ואבזור (1–10)</th>
+                                <td class="px-2 py-1 text-slate-100">${comfortFeatures || '-'}</td>
+                            </tr>
+                            ${comfortMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.comfort_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${comfortMethod}</td>
+                            </tr>` : ''}
+
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">התאמה לנהג (1–10)</th>
+                                <td class="px-2 py-1 text-slate-100">${suitability || '-'}</td>
+                            </tr>
+                            ${suitabilityMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.suitability_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${suitabilityMethod}</td>
+                            </tr>` : ''}
+
+                            ${supplyMethod ? `
+                            <tr>
+                                <th class="px-2 py-1 font-semibold text-slate-300">${methodLabelMap.supply_method}</th>
+                                <td class="px-2 py-1 text-slate-200">${supplyMethod}</td>
+                            </tr>` : ''}
+                        </tbody>
+                    </table>
+                </div>
+
+                ${comparisonComment ? `
+                    <div class="mt-2 text-[11px] md:text-xs text-slate-300 leading-relaxed">
+                        <span class="font-semibold text-slate-100">הסבר כללי:</span>
+                        <br>${comparisonComment}
+                    </div>
+                ` : ''}
+
+                ${notRecommendedReason ? `
+                    <div class="mt-2 text-[11px] md:text-xs text-red-300 leading-relaxed border border-red-500/40 bg-red-900/20 rounded-xl px-3 py-2">
+                        <span class="font-semibold">סיבה לאי-המלצה/הסתייגות:</span>
+                        <br>${notRecommendedReason}
+                    </div>
+                ` : ''}
+            </article>
+        `;
+    }
+
+    // --- תצוגת תוצאות מלאה (כרטיסיות + טבלאות) ---
     function renderResults(data) {
         if (!resultsSection || !tableWrapper) return;
 
@@ -327,68 +570,14 @@
         // מיון לפי Fit Score, גדול לקטן
         cars.sort((a, b) => (b.fit_score || 0) - (a.fit_score || 0));
 
-        const rows = cars.map((car) => {
-            const fit = car.fit_score != null ? Math.round(car.fit_score) : null;
-            let fitClass = 'bg-slate-800 text-slate-100';
-            if (fit !== null) {
-                if (fit >= 85) fitClass = 'bg-emerald-500/90 text-white';
-                else if (fit >= 70) fitClass = 'bg-amber-500/90 text-slate-900';
-                else fitClass = 'bg-slate-700 text-slate-100';
-            }
-
-            const comparison = car.comparison_comment || '';
-            const annualCost = car.total_annual_cost != null ? `${safeNum(car.total_annual_cost)} ₪` : '';
-
-            return `
-                <tr class="border-b border-slate-800/80 hover:bg-slate-900/60 text-xs md:text-sm">
-                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap">
-                        <div class="flex flex-col">
-                            <span class="font-semibold text-slate-100">${car.brand || ''} ${car.model || ''}</span>
-                            <span class="text-[11px] text-slate-400">שנה: ${car.year || ''}</span>
-                        </div>
-                    </td>
-                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap text-[11px] md:text-xs text-slate-200">
-                        <div>${car.fuel || ''}</div>
-                        <div>${car.gear || ''}${car.turbo ? ` • טורבו: ${car.turbo}` : ''}</div>
-                    </td>
-                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap text-[11px] md:text-xs text-slate-200">
-                        ${formatPriceRange(car.price_range_nis)}
-                    </td>
-                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap text-[11px] md:text-xs text-slate-200">
-                        ${annualCost}
-                    </td>
-                    <td class="px-2 py-2 md:px-3 md:py-2.5 whitespace-nowrap">
-                        <span class="inline-flex items-center justify-center min-w-[44px] px-2 py-1 rounded-full text-[11px] font-bold ${fitClass}">
-                            ${fit !== null ? fit + '%' : '?'}
-                        </span>
-                    </td>
-                    <td class="hidden md:table-cell px-2 py-2 md:px-3 md:py-2.5 text-[11px] text-slate-300 max-w-xs">
-                        ${comparison}
-                    </td>
-                </tr>
-            `;
-        }).join('');
+        const cardsHtml = cars.map((car, idx) => renderCarCard(car, idx)).join('');
 
         tableWrapper.innerHTML = `
             <div class="mb-2 text-[11px] text-slate-400">
-                הטבלה מדורגת מההתאמה הגבוהה לנמוכה על סמך הפרופיל שהזנת.
+                לכל רכב מוצגת כרטיסייה נפרדת עם כל הפרמטרים, כולל השיטות שבהן חושבו הנתונים.
             </div>
-            <div class="overflow-x-auto">
-                <table class="min-w-full text-right border-separate border-spacing-y-1">
-                    <thead class="text-[11px] md:text-xs text-slate-400">
-                        <tr>
-                            <th class="px-2 md:px-3 py-1 font-semibold">דגם</th>
-                            <th class="px-2 md:px-3 py-1 font-semibold">דלק / גיר</th>
-                            <th class="px-2 md:px-3 py-1 font-semibold">טווח מחיר (₪)</th>
-                            <th class="px-2 md:px-3 py-1 font-semibold">עלות שנתית משוערת</th>
-                            <th class="px-2 md:px-3 py-1 font-semibold">Fit Score</th>
-                            <th class="hidden md:table-cell px-2 md:px-3 py-1 font-semibold">הערת השוואה</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${rows}
-                    </tbody>
-                </table>
+            <div class="space-y-4">
+                ${cardsHtml}
             </div>
         `;
 
